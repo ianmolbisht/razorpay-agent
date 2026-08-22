@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.db.database import SessionLocal
 from app.models.product import Product
 from app.schemas.product import ProductCreate, ProductResponse
+from app.services.semantic_search import search_products as semantic_search
 
 router = APIRouter(
     prefix="/products",
@@ -66,3 +67,10 @@ def search_products(
         )
 
     return products_query.all()
+
+@router.get("/semantic-search")
+def semantic_product_search(
+    query: str,
+    limit: int = 5
+):
+    return semantic_search(query, limit)

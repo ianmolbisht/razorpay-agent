@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Text
+from pgvector.sqlalchemy import Vector
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -20,6 +21,10 @@ class Product(Base):
     )
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    embedding: Mapped[list[float] | None] = mapped_column(
+        Vector(384),
+        nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, nullable=False
     )

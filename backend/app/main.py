@@ -7,6 +7,9 @@ from app.api.routes.cart import router as cart_router
 from app.api.routes.customer import router as customer_router
 from app.api.routes.order import router as order_router
 from app.api.routes.payment import router as payment_router
+from app.api.routes.agent import router as agent_router
+
+
 
 app = FastAPI(
     title=APP_NAME,
@@ -26,7 +29,7 @@ app.include_router(cart_router, prefix="/api")
 app.include_router(order_router, prefix="/api")
 app.include_router(customer_router, prefix="/api")
 app.include_router(payment_router, prefix="/api")
-
+app.include_router(agent_router, prefix="/api")
 
 @app.get("/")
 def root():
