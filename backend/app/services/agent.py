@@ -1,4 +1,4 @@
-from google.genai import types
+import json
 
 from app.services.gemini import client, MODEL_NAME
 
@@ -20,135 +20,163 @@ You are an AI Merchant Sales & Checkout Agent.
 
 You help customers discover products and manage their shopping cart.
 
-IMPORTANT:
+IMPORTANT RULES:
 
-- Never invent products, prices, stock, or product details.
+1. NEVER invent products, prices, stock, product IDs, or product details.
 
-- When the customer asks to FIND, SEARCH, RECOMMEND, or COMPARE
-  products, use search_product_catalog.
+2. When the customer asks to FIND, SEARCH, RECOMMEND, or COMPARE
+   products, use search_product_catalog.
 
-- When the customer explicitly asks to ADD a product to their cart,
-  use add_to_cart.
+3. When the customer explicitly asks to ADD a product to their cart,
+   use add_to_cart.
 
-- If the customer refers to a product by name, first use
-  search_product_catalog if you do not already know its product ID.
+4. If the customer refers to a product by name and you do not know
+   its product ID, first use search_product_catalog.
 
-- If the product is already known and its product ID is available,
-  use that product ID directly with add_to_cart.
+5. If a product ID is already available from a previous tool result,
+   use that product ID directly with add_to_cart.
 
-- Never claim an item was added unless add_to_cart actually succeeds.
+6. NEVER claim that an item was added unless add_to_cart actually
+   returned success=true.
 
-- The backend automatically determines the customer's active cart.
-  Never ask the customer for a cart ID.
+7. The backend automatically determines the customer's active cart.
+   NEVER ask the customer for a cart ID.
 
-- Payment always requires explicit user approval.
+8. If there is no active cart, clearly tell the customer that there
+   is no active cart.
 
-- Never initiate or claim that a payment happened without explicit
-  user approval.
+9. Respect backend constraints such as stock, product availability,
+   cart status, and quantity limits.
+
+10. If a tool returns an error, explain that error to the customer.
+    Do not pretend the operation succeeded.
+
+11. Payment ALWAYS requires explicit user approval.
+
+12. NEVER initiate, claim, or imply that a payment happened unless
+    the customer explicitly approved the payment.
+
+13. Be concise and helpful.
+
+14. When a tool result contains real product information, use that
+    information in your response instead of inventing additional
+    details.
+
+15. NEVER use Markdown tables when presenting products.
+
+16. Do not repeat complete product catalog data in your final response.
+    The frontend separately displays product cards.
+
+17. When products are returned by search_product_catalog, give a
+    concise natural-language summary of the relevant products.
+
+18. Do not output product IDs unless the customer specifically asks
+    for them.
+
+19. Never use Markdown tables for product listings.
 """
 
+# =============================================================
+# GROQ TOOL DEFINITIONS
+# =============================================================
 
-commerce_tools = types.Tool(
-    function_declarations=[
-
-        # ---------------------------------------------------------
-        # SEARCH PRODUCTS
-        # ---------------------------------------------------------
-
-        types.FunctionDeclaration(
-            name="search_product_catalog",
-            description=(
+TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "search_product_catalog",
+            "description": (
                 "Search the merchant's real product catalog using "
                 "semantic search. Use this whenever the customer asks "
                 "to find, recommend, or compare products."
             ),
-            parameters=types.Schema(
-                type="OBJECT",
-                properties={
-                    "query": types.Schema(
-                        type="STRING",
-                        description="What the customer is looking for"
-                    ),
-                    "max_price": types.Schema(
-                        type="NUMBER",
-                        description="Maximum price in INR"
-                    ),
-                    "limit": types.Schema(
-                        type="INTEGER",
-                        description="Maximum number of products"
-                    ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": (
+                            "What the customer is looking for"
+                        ),
+                    },
+                    "max_price": {
+                        "type": "number",
+                        "description": (
+                            "Maximum price in INR"
+                        ),
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": (
+                            "Maximum number of products to return"
+                        ),
+                    },
                 },
-                required=["query"],
-            ),
-        ),
-
-        # ---------------------------------------------------------
-        # GET PRODUCT
-        # ---------------------------------------------------------
-
-        types.FunctionDeclaration(
-            name="get_product",
-            description=(
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_product",
+            "description": (
                 "Get exact details of a product from the merchant catalog."
             ),
-            parameters=types.Schema(
-                type="OBJECT",
-                properties={
-                    "product_id": types.Schema(
-                        type="INTEGER",
-                        description="The product ID"
-                    ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "product_id": {
+                        "type": "integer",
+                        "description": "The product ID",
+                    },
                 },
-                required=["product_id"],
-            ),
-        ),
-
-        # ---------------------------------------------------------
-        # GET CART
-        # ---------------------------------------------------------
-
-        types.FunctionDeclaration(
-            name="get_cart",
-            description=(
+                "required": ["product_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_cart",
+            "description": (
                 "Get the customer's current active shopping cart. "
                 "The backend automatically determines the active cart. "
                 "Never ask the customer for a cart ID."
             ),
-            parameters=types.Schema(
-                type="OBJECT",
-                properties={},
-            ),
-        ),
-
-        # ---------------------------------------------------------
-        # ADD TO CART
-        # ---------------------------------------------------------
-
-        types.FunctionDeclaration(
-            name="add_to_cart",
-            description=(
+            "parameters": {
+                "type": "object",
+                "properties": {},
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "add_to_cart",
+            "description": (
                 "Add a product to the customer's active shopping cart. "
-                "Use this only when the customer explicitly asks to "
+                "Use this ONLY when the customer explicitly asks to "
                 "add a product. The backend automatically determines "
-                "the active cart. Never ask the customer for a cart ID."
+                "the active cart."
             ),
-            parameters=types.Schema(
-                type="OBJECT",
-                properties={
-                    "product_id": types.Schema(
-                        type="INTEGER",
-                        description="The product ID"
-                    ),
-                    "quantity": types.Schema(
-                        type="INTEGER",
-                        description="Quantity to add"
-                    ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "product_id": {
+                        "type": "integer",
+                        "description": "The product ID",
+                    },
+                    "quantity": {
+                        "type": "integer",
+                        "description": "Quantity to add",
+                    },
                 },
-                required=["product_id"],
-            ),
-        ),
-    ]
-)
+                "required": ["product_id"],
+            },
+        },
+    },
+]
 
 
 # =============================================================
@@ -159,10 +187,14 @@ def get_active_cart_id(customer_id: int = 1):
     db = SessionLocal()
 
     try:
-        cart = db.query(Cart).filter(
-            Cart.customer_id == customer_id,
-            Cart.status == "active"
-        ).first()
+        cart = (
+            db.query(Cart)
+            .filter(
+                Cart.customer_id == customer_id,
+                Cart.status == "active",
+            )
+            .first()
+        )
 
         if not cart:
             return None
@@ -174,286 +206,311 @@ def get_active_cart_id(customer_id: int = 1):
 
 
 # =============================================================
-# AGENT
+# TOOL EXECUTION
 # =============================================================
 
-def run_agent(message: str):
+def execute_tool(tool_name: str, args: dict):
+    """
+    Execute one commerce tool and return its result.
+    """
 
-    contents = [
-        types.Content(
-            role="user",
-            parts=[
-                types.Part(text=message)
-            ]
-        )
-    ]
+    # ---------------------------------------------------------
+    # Automatically resolve active cart
+    # ---------------------------------------------------------
 
-    # =========================================================
-    # FIRST GEMINI CALL
-    # =========================================================
-
-    response = client.models.generate_content(
-        model=MODEL_NAME,
-        contents=contents,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            tools=[commerce_tools],
-        ),
-    )
-
-    # Gemini answered directly
-    if not response.function_calls:
-        return response.text
-
-    function_call = response.function_calls[0]
-
-    args = dict(function_call.args)
-
-    # =========================================================
-    # AUTOMATIC ACTIVE CART RESOLUTION
-    # =========================================================
-
-    if function_call.name in ["get_cart", "add_to_cart"]:
+    if tool_name in ["get_cart", "add_to_cart"]:
 
         cart_id = get_active_cart_id(customer_id=1)
 
         if cart_id is None:
             return {
-                "type": "message",
-                "response": "You don't have an active cart right now.",
-                "tool": function_call.name,
-                "tool_result": None,
+                "success": False,
+                "error": "No active cart exists for this customer.",
             }
 
-        # Gemini does NOT need to know the cart ID.
-        # Backend adds it here.
         args["cart_id"] = cart_id
 
-    # =========================================================
-    # AUDIT TOOL CALL
-    # =========================================================
+    # ---------------------------------------------------------
+    # Search products
+    # ---------------------------------------------------------
 
-    log_action(
-        session_id="customer_1",
-        action="TOOL_CALL",
-        tool_name=function_call.name,
-        arguments=args,
-    )
+    if tool_name == "search_product_catalog":
 
-    # =========================================================
-    # EXECUTE FIRST TOOL
-    # =========================================================
-
-    if function_call.name == "search_product_catalog":
-
-        result = search_product_catalog(
+        return search_product_catalog(
             query=args["query"],
             max_price=args.get("max_price"),
             limit=args.get("limit", 5),
         )
 
-    elif function_call.name == "get_product":
+    # ---------------------------------------------------------
+    # Get product
+    # ---------------------------------------------------------
 
-        result = get_product(
+    if tool_name == "get_product":
+
+        return get_product(
             args["product_id"]
         )
 
-    elif function_call.name == "get_cart":
+    # ---------------------------------------------------------
+    # Get cart
+    # ---------------------------------------------------------
 
-        result = get_cart(
+    if tool_name == "get_cart":
+
+        return get_cart(
             args["cart_id"]
         )
 
-    elif function_call.name == "add_to_cart":
+    # ---------------------------------------------------------
+    # Add to cart
+    # ---------------------------------------------------------
 
-        result = add_to_cart(
+    if tool_name == "add_to_cart":
+
+        return add_to_cart(
             cart_id=args["cart_id"],
             product_id=args["product_id"],
             quantity=args.get("quantity", 1),
         )
 
-    else:
+    return {
+        "success": False,
+        "error": f"Unknown tool: {tool_name}",
+    }
 
-        return {
-            "type": "message",
-            "response": "I couldn't perform that action.",
-        }
 
-    # =========================================================
-    # AUDIT FIRST TOOL RESULT
-    # =========================================================
+# =============================================================
+# AGENT
+# =============================================================
 
-    log_action(
-        session_id="customer_1",
-        action="TOOL_RESULT",
-        tool_name=function_call.name,
-        arguments=args,
-        result=result,
-    )
+def run_agent(message: str):
 
-    # =========================================================
-    # SEND FIRST TOOL RESULT BACK TO GEMINI
-    # =========================================================
+    messages = [
+        {
+            "role": "system",
+            "content": SYSTEM_PROMPT,
+        },
+        {
+            "role": "user",
+            "content": message,
+        },
+    ]
 
-    contents.append(
-        response.candidates[0].content
-    )
+    # Maximum number of tool iterations.
+    # This prevents an infinite agent loop.
+    MAX_ITERATIONS = 5
 
-    contents.append(
-        types.Content(
-            role="tool",
-            parts=[
-                types.Part.from_function_response(
-                    name=function_call.name,
-                    response={
-                        "result": result
-                    }
-                )
-            ]
-        )
-    )
-
-    # =========================================================
-    # SECOND GEMINI CALL
-    # =========================================================
-
-    final_response = client.models.generate_content(
-        model=MODEL_NAME,
-        contents=contents,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            tools=[commerce_tools],
-        ),
-    )
-
-    # =========================================================
-    # HANDLE SECOND TOOL CALL
-    # =========================================================
-
-    if final_response.function_calls:
-
-        second_call = final_response.function_calls[0]
-
-        second_args = dict(second_call.args)
+    for _ in range(MAX_ITERATIONS):
 
         # -----------------------------------------------------
-        # Automatically resolve active cart again
+        # Ask Groq
         # -----------------------------------------------------
 
-        if second_call.name in ["get_cart", "add_to_cart"]:
-
-            cart_id = get_active_cart_id(customer_id=1)
-
-            if cart_id is None:
-                return {
-                    "type": "message",
-                    "response": (
-                        "You don't have an active cart right now."
-                    ),
-                    "tool": second_call.name,
-                    "tool_result": None,
-                }
-
-            second_args["cart_id"] = cart_id
-
-        # -----------------------------------------------------
-        # Audit second tool call
-        # -----------------------------------------------------
-
-        log_action(
-            session_id="customer_1",
-            action="TOOL_CALL",
-            tool_name=second_call.name,
-            arguments=second_args,
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=messages,
+            tools=TOOLS,
+            tool_choice="auto",
         )
 
+        assistant_message = response.choices[0].message
+
         # -----------------------------------------------------
-        # Execute second tool
+        # No more tools → final answer
         # -----------------------------------------------------
 
-        if second_call.name == "search_product_catalog":
-
-            second_result = search_product_catalog(
-                query=second_args["query"],
-                max_price=second_args.get("max_price"),
-                limit=second_args.get("limit", 5),
-            )
-
-        elif second_call.name == "get_product":
-
-            second_result = get_product(
-                second_args["product_id"]
-            )
-
-        elif second_call.name == "get_cart":
-
-            second_result = get_cart(
-                second_args["cart_id"]
-            )
-
-        elif second_call.name == "add_to_cart":
-
-            second_result = add_to_cart(
-                cart_id=second_args["cart_id"],
-                product_id=second_args["product_id"],
-                quantity=second_args.get("quantity", 1),
-            )
-
-        else:
+        if not assistant_message.tool_calls:
 
             return {
                 "type": "message",
-                "response": "I couldn't perform that action.",
+                "response": assistant_message.content or "",
+                "tool": None,
+                "tool_result": None,
             }
 
         # -----------------------------------------------------
-        # Audit second tool result
+        # Add assistant's tool-call message to conversation
         # -----------------------------------------------------
 
-        log_action(
-            session_id="customer_1",
-            action="TOOL_RESULT",
-            tool_name=second_call.name,
-            arguments=second_args,
-            result=second_result,
-        )
+        messages.append(assistant_message)
+
+        last_tool_name = None
+        last_tool_result = None
 
         # -----------------------------------------------------
-        # Return result
+        # Execute every tool requested by Groq
         # -----------------------------------------------------
 
-        if second_call.name == "add_to_cart":
+        for tool_call in assistant_message.tool_calls:
 
-            if (
-                isinstance(second_result, dict)
-                and second_result.get("success")
-            ):
-                response_text = (
-                    "✅ Added the product to your cart."
+            tool_name = tool_call.function.name
+            last_tool_name = tool_name
+
+            # Parse JSON arguments safely
+            try:
+                args = json.loads(
+                    tool_call.function.arguments or "{}"
                 )
-            else:
-                response_text = (
-                    "I couldn't add the product to your cart."
+            except json.JSONDecodeError:
+
+                result = {
+                    "success": False,
+                    "error": "The AI generated invalid tool arguments.",
+                }
+
+                log_action(
+                    session_id="customer_1",
+                    action="TOOL_RESULT",
+                    tool_name=tool_name,
+                    arguments={},
+                    result=result,
                 )
 
-        else:
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "name": tool_name,
+                        "content": json.dumps(result),
+                    }
+                )
 
-            response_text = final_response.text
+                last_tool_result = result
+                continue
 
-        return {
-            "type": "message",
-            "response": response_text,
-            "tool": second_call.name,
-            "tool_result": second_result,
-        }
+            # -------------------------------------------------
+            # Resolve cart internally
+            # -------------------------------------------------
+
+            if tool_name in ["get_cart", "add_to_cart"]:
+
+                cart_id = get_active_cart_id(
+                    customer_id=1
+                )
+
+                if cart_id is None:
+
+                    result = {
+                        "success": False,
+                        "error": (
+                            "No active cart exists for this customer."
+                        ),
+                    }
+
+                    log_action(
+                        session_id="customer_1",
+                        action="TOOL_CALL",
+                        tool_name=tool_name,
+                        arguments=args,
+                    )
+
+                    log_action(
+                        session_id="customer_1",
+                        action="TOOL_RESULT",
+                        tool_name=tool_name,
+                        arguments=args,
+                        result=result,
+                    )
+
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "name": tool_name,
+                            "content": json.dumps(result),
+                        }
+                    )
+
+                    last_tool_result = result
+                    continue
+
+                args["cart_id"] = cart_id
+
+            # -------------------------------------------------
+            # Audit tool call
+            # -------------------------------------------------
+
+            log_action(
+                session_id="customer_1",
+                action="TOOL_CALL",
+                tool_name=tool_name,
+                arguments=args,
+            )
+
+            # -------------------------------------------------
+            # Execute tool
+            # -------------------------------------------------
+
+            try:
+
+                result = execute_tool(
+                    tool_name,
+                    args,
+                )
+
+            except Exception as exc:
+
+                result = {
+                    "success": False,
+                    "error": (
+                        "Tool execution failed."
+                    ),
+                }
+
+            # -------------------------------------------------
+            # Audit tool result
+            # -------------------------------------------------
+
+            log_action(
+                session_id="customer_1",
+                action="TOOL_RESULT",
+                tool_name=tool_name,
+                arguments=args,
+                result=result,
+            )
+
+            last_tool_result = result
+
+            # -------------------------------------------------
+            # Send tool result back to Groq
+            # -------------------------------------------------
+
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "name": tool_name,
+                    "content": json.dumps(
+                        result,
+                        default=str,
+                    ),
+                }
+            )
+
+        # -----------------------------------------------------
+        # Loop continues:
+        #
+        # Groq receives the tool result and can:
+        #
+        # 1. Give a final response
+        # 2. Call another tool
+        #
+        # This is what allows:
+        #
+        # search → get_product → add_to_cart → final response
+        # -----------------------------------------------------
 
     # =========================================================
-    # NORMAL FINAL RESPONSE
+    # SAFETY FALLBACK
     # =========================================================
 
     return {
         "type": "message",
-        "response": final_response.text,
-        "tool": function_call.name,
-        "tool_result": result,
+        "response": (
+            "I couldn't complete that request safely. "
+            "Please try again."
+        ),
+        "tool": last_tool_name,
+        "tool_result": last_tool_result,
     }

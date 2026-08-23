@@ -1,9 +1,10 @@
-from google import genai
+from groq import Groq
 
-from app.core.config import GEMINI_API_KEY
-
-
-client = genai.Client(api_key=GEMINI_API_KEY)
+from app.core.config import GROQ_API_KEY
 
 
-MODEL_NAME = "gemini-2.5-flash"
+client = Groq(
+    api_key=GROQ_API_KEY
+)
+
+MODEL_NAME = "openai/gpt-oss-120b"

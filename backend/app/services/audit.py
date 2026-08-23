@@ -20,14 +20,25 @@ def log_action(
             session_id=session_id,
             action=action,
             tool_name=tool_name,
-            arguments=json.dumps(arguments) if arguments else None,
-            result=json.dumps(result, default=str) if result is not None else None,
+            arguments=(
+                json.dumps(arguments)
+                if arguments is not None
+                else None
+            ),
+            result=(
+                json.dumps(result, default=str)
+                if result is not None
+                else None
+            ),
             approval_required=approval_required,
             approved=approved,
         )
 
         db.add(log)
         db.commit()
+        db.refresh(log)
+
+        return log.id
 
     finally:
         db.close()
