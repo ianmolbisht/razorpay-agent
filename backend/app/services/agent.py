@@ -2,6 +2,10 @@ import json
 
 from app.services.gemini import client, MODEL_NAME
 
+from app.models.product import Product
+from app.models.order import Order
+from app.models.cart import Cart
+
 from app.services.agent_tools import (
     search_product_catalog,
     get_product,
@@ -9,16 +13,25 @@ from app.services.agent_tools import (
     add_to_cart,
 )
 
+from app.services.ai_buyer import (
+    request_checkout,
+    approve_order,
+)
+
 from app.services.audit import log_action
 
 from app.db.database import SessionLocal
-from app.models.cart import Cart
 
+
+# =============================================================
+# SYSTEM PROMPT
+# =============================================================
 
 SYSTEM_PROMPT = """
 You are an AI Merchant Sales & Checkout Agent.
 
-You help customers discover products and manage their shopping cart.
+You help customers discover products, manage their shopping cart,
+prepare checkout, and explicitly approve pending orders.
 
 IMPORTANT RULES:
 
@@ -27,23 +40,23 @@ IMPORTANT RULES:
 2. When the customer asks to FIND, SEARCH, RECOMMEND, or COMPARE
    products, use search_product_catalog.
 
-3. When the customer explicitly asks to ADD a product to their cart,
+3. When the customer asks what products are available or asks to
+   browse the store, use list_products.
+
+4. When the customer explicitly asks to ADD a product to their cart,
    use add_to_cart.
 
-4. If the customer refers to a product by name and you do not know
+5. If the customer refers to a product by name and you do not know
    its product ID, first use search_product_catalog.
 
-5. If a product ID is already available from a previous tool result,
+6. If a product ID is already available from a previous tool result,
    use that product ID directly with add_to_cart.
 
-6. NEVER claim that an item was added unless add_to_cart actually
+7. NEVER claim that an item was added unless add_to_cart actually
    returned success=true.
 
-7. The backend automatically determines the customer's active cart.
+8. The backend automatically determines the customer's active cart.
    NEVER ask the customer for a cart ID.
-
-8. If there is no active cart, clearly tell the customer that there
-   is no active cart.
 
 9. Respect backend constraints such as stock, product availability,
    cart status, and quantity limits.
@@ -51,30 +64,50 @@ IMPORTANT RULES:
 10. If a tool returns an error, explain that error to the customer.
     Do not pretend the operation succeeded.
 
-11. Payment ALWAYS requires explicit user approval.
+11. Payment ALWAYS requires explicit customer approval.
 
-12. NEVER initiate, claim, or imply that a payment happened unless
-    the customer explicitly approved the payment.
+12. NEVER initiate or claim that payment happened unless the customer
+    explicitly approved the payment.
 
-13. Be concise and helpful.
+13. When the customer says things such as:
+    "yes", "confirm", "confirmed", "yes go ahead", "proceed",
+    "approve", or "I approve"
+    immediately after being asked to approve a pending checkout,
+    treat that as explicit payment approval.
 
-14. When a tool result contains real product information, use that
-    information in your response instead of inventing additional
-    details.
+14. When explicit approval is received for a pending checkout,
+    use approve_order.
 
-15. NEVER use Markdown tables when presenting products.
+15. approve_order automatically finds the customer's most recent
+    pending order. NEVER ask the customer for an order ID.
 
-16. Do not repeat complete product catalog data in your final response.
+16. After approve_order succeeds, DO NOT call get_cart or
+    request_checkout again. The frontend will use the returned
+    order_id to start Razorpay Checkout.
+
+17. After approve_order succeeds, respond briefly that the payment
+    approval was recorded and that checkout/payment can now proceed.
+
+18. Do not claim that the Razorpay payment itself succeeded.
+    approve_order only records customer approval.
+
+19. Be concise and helpful.
+
+20. When a tool result contains real product information, use that
+    information instead of inventing details.
+
+21. NEVER use Markdown tables.
+
+22. Do not repeat complete product catalog data in your final response.
     The frontend separately displays product cards.
 
-17. When products are returned by search_product_catalog, give a
-    concise natural-language summary of the relevant products.
-
-18. Do not output product IDs unless the customer specifically asks
+23. Do not output product IDs unless the customer specifically asks
     for them.
 
-19. Never use Markdown tables for product listings.
+24. Never claim an order was placed merely because approve_order
+    succeeded. It only means customer approval was recorded.
 """
+
 
 # =============================================================
 # GROQ TOOL DEFINITIONS
@@ -95,27 +128,39 @@ TOOLS = [
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": (
-                            "What the customer is looking for"
-                        ),
+                        "description": "What the customer is looking for",
                     },
                     "max_price": {
-                        "type": "number",
-                        "description": (
-                            "Maximum price in INR"
-                        ),
+                        "type": ["number", "null"],
+                        "description": "Maximum price in INR. Omit or use null when no maximum price is specified.",
                     },
                     "limit": {
                         "type": "integer",
-                        "description": (
-                            "Maximum number of products to return"
-                        ),
+                        "description": "Maximum number of products to return",
                     },
                 },
                 "required": ["query"],
             },
         },
     },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "list_products",
+            "description": (
+                "List all active products currently available "
+                "in the merchant catalog. Use this when the customer "
+                "asks what products are available, what they can buy, "
+                "wants to browse the store, or asks to see all products."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+            },
+        },
+    },
+
     {
         "type": "function",
         "function": {
@@ -135,6 +180,7 @@ TOOLS = [
             },
         },
     },
+
     {
         "type": "function",
         "function": {
@@ -150,6 +196,7 @@ TOOLS = [
             },
         },
     },
+
     {
         "type": "function",
         "function": {
@@ -157,8 +204,7 @@ TOOLS = [
             "description": (
                 "Add a product to the customer's active shopping cart. "
                 "Use this ONLY when the customer explicitly asks to "
-                "add a product. The backend automatically determines "
-                "the active cart."
+                "add a product."
             ),
             "parameters": {
                 "type": "object",
@@ -176,6 +222,39 @@ TOOLS = [
             },
         },
     },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "request_checkout",
+            "description": (
+                "Prepare checkout for the customer's current cart. "
+                "This does NOT make a payment. "
+                "Use this when the customer asks to proceed with checkout."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+            },
+        },
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "approve_order",
+            "description": (
+                "Approve the customer's most recent pending order after "
+                "the customer explicitly confirms payment. "
+                "The backend automatically finds the pending order. "
+                "Do not provide an order ID."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+            },
+        },
+    },
 ]
 
 
@@ -187,6 +266,7 @@ def get_active_cart_id(customer_id: int = 1):
     db = SessionLocal()
 
     try:
+        # Look for an existing active cart
         cart = (
             db.query(Cart)
             .filter(
@@ -196,8 +276,19 @@ def get_active_cart_id(customer_id: int = 1):
             .first()
         )
 
-        if not cart:
-            return None
+        if cart:
+            return cart.id
+
+        # No active cart exists.
+        # Start a new shopping session.
+        cart = Cart(
+            customer_id=customer_id,
+            status="active",
+        )
+
+        db.add(cart)
+        db.commit()
+        db.refresh(cart)
 
         return cart.id
 
@@ -215,7 +306,49 @@ def execute_tool(tool_name: str, args: dict):
     """
 
     # ---------------------------------------------------------
-    # Automatically resolve active cart
+    # APPROVE ORDER
+    # ---------------------------------------------------------
+
+    if tool_name == "approve_order":
+
+        db = SessionLocal()
+
+        try:
+            order = (
+                db.query(Order)
+                .filter(
+                    Order.customer_id == 1,
+                    Order.status == "pending",
+                )
+                .order_by(Order.id.desc())
+                .first()
+            )
+
+            if not order:
+                return {
+                    "success": False,
+                    "error": "No pending order found.",
+                }
+
+            result = approve_order(order.id)
+
+            return {
+                **result,
+                "order_id": order.id,
+            }
+
+        finally:
+            db.close()
+
+    # ---------------------------------------------------------
+    # REQUEST CHECKOUT
+    # ---------------------------------------------------------
+
+    if tool_name == "request_checkout":
+        return request_checkout()
+
+    # ---------------------------------------------------------
+    # CART TOOLS
     # ---------------------------------------------------------
 
     if tool_name in ["get_cart", "add_to_cart"]:
@@ -231,7 +364,7 @@ def execute_tool(tool_name: str, args: dict):
         args["cart_id"] = cart_id
 
     # ---------------------------------------------------------
-    # Search products
+    # SEARCH PRODUCTS
     # ---------------------------------------------------------
 
     if tool_name == "search_product_catalog":
@@ -243,7 +376,36 @@ def execute_tool(tool_name: str, args: dict):
         )
 
     # ---------------------------------------------------------
-    # Get product
+    # LIST PRODUCTS
+    # ---------------------------------------------------------
+
+    if tool_name == "list_products":
+
+        db = SessionLocal()
+
+        try:
+            products = (
+                db.query(Product)
+                .filter(Product.is_active == True)
+                .all()
+            )
+
+            return [
+                {
+                    "id": product.id,
+                    "name": product.name,
+                    "description": product.description,
+                    "price": float(product.price),
+                    "stock": product.stock,
+                }
+                for product in products
+            ]
+
+        finally:
+            db.close()
+
+    # ---------------------------------------------------------
+    # GET PRODUCT
     # ---------------------------------------------------------
 
     if tool_name == "get_product":
@@ -253,7 +415,7 @@ def execute_tool(tool_name: str, args: dict):
         )
 
     # ---------------------------------------------------------
-    # Get cart
+    # GET CART
     # ---------------------------------------------------------
 
     if tool_name == "get_cart":
@@ -263,7 +425,7 @@ def execute_tool(tool_name: str, args: dict):
         )
 
     # ---------------------------------------------------------
-    # Add to cart
+    # ADD TO CART
     # ---------------------------------------------------------
 
     if tool_name == "add_to_cart":
@@ -273,6 +435,10 @@ def execute_tool(tool_name: str, args: dict):
             product_id=args["product_id"],
             quantity=args.get("quantity", 1),
         )
+
+    # ---------------------------------------------------------
+    # UNKNOWN TOOL
+    # ---------------------------------------------------------
 
     return {
         "success": False,
@@ -284,28 +450,86 @@ def execute_tool(tool_name: str, args: dict):
 # AGENT
 # =============================================================
 
-def run_agent(message: str):
+def run_agent(
+    message: str,
+    history: list[dict] | None = None,
+):
+
+    # ---------------------------------------------------------
+    # FAST PATH: LIST PRODUCTS
+    # ---------------------------------------------------------
+
+    if message.lower().strip() in [
+        "what all can i buy",
+        "what can i buy",
+        "what products are available",
+        "show all products",
+        "show me all products",
+        "find all products",
+        "list all products",
+        "list me all items",
+        "show me all items",
+    ]:
+
+        result = execute_tool(
+            "list_products",
+            {},
+        )
+
+        return {
+            "type": "message",
+            "response": json.dumps(
+                result,
+                default=str,
+            ),
+            "tool": "list_products",
+            "tool_result": result,
+        }
+
+    # ---------------------------------------------------------
+    # BUILD CONVERSATION
+    # ---------------------------------------------------------
 
     messages = [
         {
             "role": "system",
             "content": SYSTEM_PROMPT,
-        },
+        }
+    ]
+
+    if history:
+
+        for item in history:
+
+            if item.get("role") in ["user", "assistant"]:
+
+                content = item.get("content", "")
+
+                if content:
+                    messages.append(
+                        {
+                            "role": item["role"],
+                            "content": content,
+                        }
+                    )
+
+    messages.append(
         {
             "role": "user",
             "content": message,
-        },
-    ]
+        }
+    )
 
-    # Maximum number of tool iterations.
-    # This prevents an infinite agent loop.
+    # ---------------------------------------------------------
+    # TOOL LOOP
+    # ---------------------------------------------------------
+
     MAX_ITERATIONS = 5
 
-    for _ in range(MAX_ITERATIONS):
+    last_tool_name = None
+    last_tool_result = None
 
-        # -----------------------------------------------------
-        # Ask Groq
-        # -----------------------------------------------------
+    for _ in range(MAX_ITERATIONS):
 
         response = client.chat.completions.create(
             model=MODEL_NAME,
@@ -317,7 +541,7 @@ def run_agent(message: str):
         assistant_message = response.choices[0].message
 
         # -----------------------------------------------------
-        # No more tools → final answer
+        # FINAL AI RESPONSE
         # -----------------------------------------------------
 
         if not assistant_message.tool_calls:
@@ -325,47 +549,44 @@ def run_agent(message: str):
             return {
                 "type": "message",
                 "response": assistant_message.content or "",
-                "tool": None,
-                "tool_result": None,
+                "tool": last_tool_name,
+                "tool_result": last_tool_result,
             }
 
         # -----------------------------------------------------
-        # Add assistant's tool-call message to conversation
+        # ADD ASSISTANT TOOL CALL
         # -----------------------------------------------------
 
         messages.append(assistant_message)
 
-        last_tool_name = None
-        last_tool_result = None
-
         # -----------------------------------------------------
-        # Execute every tool requested by Groq
+        # EXECUTE TOOLS
         # -----------------------------------------------------
 
         for tool_call in assistant_message.tool_calls:
 
             tool_name = tool_call.function.name
+
             last_tool_name = tool_name
 
-            # Parse JSON arguments safely
+            # -------------------------------------------------
+            # PARSE ARGUMENTS
+            # -------------------------------------------------
+
             try:
+
                 args = json.loads(
                     tool_call.function.arguments or "{}"
                 )
+
             except json.JSONDecodeError:
 
                 result = {
                     "success": False,
-                    "error": "The AI generated invalid tool arguments.",
+                    "error": (
+                        "The AI generated invalid tool arguments."
+                    ),
                 }
-
-                log_action(
-                    session_id="customer_1",
-                    action="TOOL_RESULT",
-                    tool_name=tool_name,
-                    arguments={},
-                    result=result,
-                )
 
                 messages.append(
                     {
@@ -377,13 +598,17 @@ def run_agent(message: str):
                 )
 
                 last_tool_result = result
+
                 continue
 
             # -------------------------------------------------
-            # Resolve cart internally
+            # RESOLVE ACTIVE CART
             # -------------------------------------------------
 
-            if tool_name in ["get_cart", "add_to_cart"]:
+            if tool_name in [
+                "get_cart",
+                "add_to_cart",
+            ]:
 
                 cart_id = get_active_cart_id(
                     customer_id=1
@@ -394,16 +619,10 @@ def run_agent(message: str):
                     result = {
                         "success": False,
                         "error": (
-                            "No active cart exists for this customer."
+                            "No active cart exists "
+                            "for this customer."
                         ),
                     }
-
-                    log_action(
-                        session_id="customer_1",
-                        action="TOOL_CALL",
-                        tool_name=tool_name,
-                        arguments=args,
-                    )
 
                     log_action(
                         session_id="customer_1",
@@ -423,12 +642,13 @@ def run_agent(message: str):
                     )
 
                     last_tool_result = result
+
                     continue
 
                 args["cart_id"] = cart_id
 
             # -------------------------------------------------
-            # Audit tool call
+            # AUDIT TOOL CALL
             # -------------------------------------------------
 
             log_action(
@@ -439,7 +659,7 @@ def run_agent(message: str):
             )
 
             # -------------------------------------------------
-            # Execute tool
+            # EXECUTE TOOL
             # -------------------------------------------------
 
             try:
@@ -451,15 +671,19 @@ def run_agent(message: str):
 
             except Exception as exc:
 
+                print(
+                    f"Tool '{tool_name}' failed: {exc}"
+                )
+
                 result = {
                     "success": False,
                     "error": (
-                        "Tool execution failed."
+                        f"Tool '{tool_name}' failed."
                     ),
                 }
 
             # -------------------------------------------------
-            # Audit tool result
+            # AUDIT TOOL RESULT
             # -------------------------------------------------
 
             log_action(
@@ -473,7 +697,39 @@ def run_agent(message: str):
             last_tool_result = result
 
             # -------------------------------------------------
-            # Send tool result back to Groq
+            # APPROVAL SUCCESS
+            # -------------------------------------------------
+
+            if (
+                tool_name == "approve_order"
+                and isinstance(result, dict)
+                and result.get("success") is True
+                and result.get("approved") is True
+                and result.get("order_id") is not None
+            ):
+
+                # IMPORTANT:
+                #
+                # Do NOT send this back to the LLM and let it
+                # make another tool call such as get_cart.
+                #
+                # The frontend needs the order_id so it can
+                # start Razorpay Checkout.
+
+                return {
+                    "type": "message",
+                    "response": (
+                        "Your payment approval has been recorded. "
+                        "Opening Razorpay Checkout now."
+                    ),
+                    "tool": "approve_order",
+                    "tool_result": result,
+                    "order_id": result["order_id"],
+                    "payment_approved": True,
+                }
+
+            # -------------------------------------------------
+            # SEND TOOL RESULT TO MODEL
             # -------------------------------------------------
 
             messages.append(
@@ -487,19 +743,6 @@ def run_agent(message: str):
                     ),
                 }
             )
-
-        # -----------------------------------------------------
-        # Loop continues:
-        #
-        # Groq receives the tool result and can:
-        #
-        # 1. Give a final response
-        # 2. Call another tool
-        #
-        # This is what allows:
-        #
-        # search → get_product → add_to_cart → final response
-        # -----------------------------------------------------
 
     # =========================================================
     # SAFETY FALLBACK

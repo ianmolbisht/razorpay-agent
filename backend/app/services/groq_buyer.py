@@ -199,12 +199,41 @@ Rules:
 
 13. Treat the merchant manifest as the source of truth
     for its commerce capabilities and safety constraints.
+
+14. If the customer asks what products are available,
+    what they can buy, wants to browse the store, asks
+    "what all can I buy", "show me everything", "show all products",
+    "find all products", or otherwise asks for the full catalog,
+    ALWAYS use list_products instead of search_products.
+    Do not turn these broad catalog requests into a search query
+    such as "all products".
+    
+15. When the customer asks to buy a specific quantity, interpret that
+    quantity as the desired final quantity in the cart, not as an
+    additional quantity.
+
+16. Before adding a product to the cart, always check current availability
+    and inspect the current cart quantity.
+
+17. If the requested quantity is already in the cart, do not add anything.
+
+18. If some quantity is already in the cart, only add the difference
+    between the requested quantity and the existing quantity.
+
+19. Never add a quantity that would make the cart exceed available stock.
+
+20. If the customer explicitly confirms a pending checkout using
+    phrases such as "yes", "confirmed", "confirm", "proceed",
+    "yes proceed", or "go ahead", use approve_order.
+
+21. Never ask the customer to provide an order ID for approval.
+    Resolve the pending order automatically.
 """
 
 
 tools = [
 
-    {
+   {
         "type": "function",
         "function": {
             "name": "search_products",
@@ -214,9 +243,6 @@ tools = [
                 "properties": {
                     "query": {
                         "type": "string"
-                    },
-                    "max_price": {
-                        "type": ["number", "null"]
                     }
                 },
                 "required": ["query"]

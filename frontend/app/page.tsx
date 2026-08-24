@@ -339,7 +339,7 @@ export default function Home() {
   }
 
   // =========================================================
-  // CHECKOUT
+  // NORMAL CHECKOUT
   // =========================================================
 
   async function checkout(
@@ -371,9 +371,7 @@ export default function Home() {
       return;
     }
 
-    // Explicit approval before money action.
-    // For an AI buyer request, approval is given by
-    // the dedicated "Approve & Pay" button.
+    // Explicit approval before money action
     if (!approvalAlreadyGiven) {
       const approved =
         window.confirm(
@@ -395,50 +393,59 @@ export default function Home() {
       // 1. Create local order
       // -----------------------------------------------------
 
-      // 1. Create local order
-const orderResponse = await fetch(
-  `http://127.0.0.1:8000/api/orders/from-cart/${cartId}`,
-  {
-    method: "POST",
-  }
-);
+      const orderResponse =
+        await fetch(
+          `http://127.0.0.1:8000/api/orders/from-cart/${cartId}`,
+          {
+            method: "POST",
+          }
+        );
 
-const order = await orderResponse.json();
+      const order =
+        await orderResponse.json();
 
-if (!orderResponse.ok) {
-  alert(
-    order.detail ||
-      "Could not create order"
-  );
-  return;
-}
+      if (!orderResponse.ok) {
+        alert(
+          order.detail ||
+            "Could not create order"
+        );
+        return;
+      }
 
-// 2. Record explicit customer approval
-const approvalResponse = await fetch(
-  `http://127.0.0.1:8000/api/orders/${order.id}/approve`,
-  {
-    method: "POST",
-  }
-);
+      // -----------------------------------------------------
+      // 2. Record explicit customer approval
+      // -----------------------------------------------------
 
-const approvalResult =
-  await approvalResponse.json();
+      const approvalResponse =
+        await fetch(
+          `http://127.0.0.1:8000/api/orders/${order.id}/approve`,
+          {
+            method: "POST",
+          }
+        );
 
-if (!approvalResponse.ok) {
-  alert(
-    approvalResult.detail ||
-      "Could not record payment approval"
-  );
-  return;
-}
+      const approvalResult =
+        await approvalResponse.json();
 
-// 3. Now create Razorpay order
-const razorpayResponse = await fetch(
-  `http://127.0.0.1:8000/api/orders/${order.id}/razorpay`,
-  {
-    method: "POST",
-  }
-);
+      if (!approvalResponse.ok) {
+        alert(
+          approvalResult.detail ||
+            "Could not record payment approval"
+        );
+        return;
+      }
+
+      // -----------------------------------------------------
+      // 3. Create Razorpay order
+      // -----------------------------------------------------
+
+      const razorpayResponse =
+        await fetch(
+          `http://127.0.0.1:8000/api/orders/${order.id}/razorpay`,
+          {
+            method: "POST",
+          }
+        );
 
       const razorpayOrder =
         await razorpayResponse.json();
@@ -452,7 +459,7 @@ const razorpayResponse = await fetch(
       }
 
       // -----------------------------------------------------
-      // 3. Make sure Razorpay loaded
+      // 4. Make sure Razorpay loaded
       // -----------------------------------------------------
 
       if (!window.Razorpay) {
@@ -463,7 +470,7 @@ const razorpayResponse = await fetch(
       }
 
       // -----------------------------------------------------
-      // 4. Razorpay Checkout
+      // 5. Razorpay Checkout
       // -----------------------------------------------------
 
       const options = {
@@ -490,10 +497,6 @@ const razorpayResponse = await fetch(
             response: any
           ) {
             try {
-              // -------------------------------------------------
-              // 5. Verify payment
-              // -------------------------------------------------
-
               const verificationResponse =
                 await fetch(
                   `http://127.0.0.1:8000/api/payments/${order.id}/verify`,
@@ -567,43 +570,35 @@ const razorpayResponse = await fetch(
           );
 
           try {
-            // Record the failed/cancelled payment
-            // in the backend audit trail.
-            const failureResponse =
-              await fetch(
-                `http://127.0.0.1:8000/api/payments/${order.id}/failed`,
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type":
-                      "application/json",
-                  },
-                  body: JSON.stringify({
-                    razorpay_order_id:
-                      response?.error?.metadata?.order_id ??
-                      razorpayOrder.razorpay_order_id,
+            await fetch(
+              `http://127.0.0.1:8000/api/payments/${order.id}/failed`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+                body: JSON.stringify({
+                  razorpay_order_id:
+                    response?.error
+                      ?.metadata
+                      ?.order_id ??
+                    razorpayOrder.razorpay_order_id,
 
-                    error_code:
-                      response?.error?.code ?? null,
+                  error_code:
+                    response?.error
+                      ?.code ?? null,
 
-                    error_description:
-                      response?.error?.description ?? null,
+                  error_description:
+                    response?.error
+                      ?.description ?? null,
 
-                    error_reason:
-                      response?.error?.reason ?? null,
-                  }),
-                }
-              );
-
-            const failureResult =
-              await failureResponse.json();
-
-            if (!failureResponse.ok) {
-              console.error(
-                "Could not record payment failure:",
-                failureResult
-              );
-            }
+                  error_reason:
+                    response?.error
+                      ?.reason ?? null,
+                }),
+              }
+            );
           } catch (error) {
             console.error(
               "Could not record payment failure:",
@@ -632,20 +627,27 @@ const razorpayResponse = await fetch(
   // =========================================================
 
   async function requestAICheckout() {
-    if (!cartId || cart.length === 0) {
-      alert("Your cart is empty.");
+    if (
+      !cartId ||
+      cart.length === 0
+    ) {
+      alert(
+        "Your cart is empty."
+      );
       return;
     }
 
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/commerce/checkout/1`,
-        {
-          method: "POST",
-        }
-      );
+      const response =
+        await fetch(
+          `http://127.0.0.1:8000/api/commerce/checkout/1`,
+          {
+            method: "POST",
+          }
+        );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         alert(
@@ -675,9 +677,6 @@ const razorpayResponse = await fetch(
 
     setAICheckout(null);
 
-    // The user has explicitly approved the AI buyer's
-    // checkout request, so the normal Razorpay flow can
-    // continue without showing a second confirmation.
     await checkout(true);
   }
 
@@ -730,6 +729,9 @@ const razorpayResponse = await fetch(
             body: JSON.stringify({
               message:
                 userMessage,
+
+              history:
+                messages,
             }),
           }
         );
@@ -742,6 +744,265 @@ const razorpayResponse = await fetch(
 
       const data =
         await response.json();
+
+      console.log(
+        "AI RESPONSE:",
+        data
+      );
+
+      // =====================================================
+      // AI APPROVED PAYMENT
+      //
+      // IMPORTANT:
+      // The AI has approved the order, but the frontend must
+      // still create the Razorpay order and OPEN the payment
+      // interface.
+      // =====================================================
+
+      if (
+        data.tool ===
+          "approve_order" &&
+        data.tool_result
+          ?.success === true &&
+        data.tool_result
+          ?.order_id
+      ) {
+        const orderId =
+          Number(
+            data.tool_result
+              .order_id
+          );
+
+        try {
+          // -------------------------------------------------
+          // 1. Create Razorpay order
+          // -------------------------------------------------
+
+          const razorpayResponse =
+            await fetch(
+              `http://127.0.0.1:8000/api/orders/${orderId}/razorpay`,
+              {
+                method: "POST",
+              }
+            );
+
+          const razorpayOrder =
+            await razorpayResponse.json();
+
+          if (
+            !razorpayResponse.ok
+          ) {
+            throw new Error(
+              razorpayOrder.detail ||
+                "Could not create Razorpay order"
+            );
+          }
+
+          // -------------------------------------------------
+          // 2. Check Razorpay SDK
+          // -------------------------------------------------
+
+          if (
+            !window.Razorpay
+          ) {
+            throw new Error(
+              "Razorpay Checkout is still loading. Please refresh and try again."
+            );
+          }
+
+          // -------------------------------------------------
+          // 3. Razorpay options
+          // -------------------------------------------------
+
+          const options = {
+            key:
+              razorpayOrder.key_id,
+
+            amount:
+              razorpayOrder.amount,
+
+            currency:
+              razorpayOrder.currency,
+
+            name:
+              "Razorpay AI Merchant Agent",
+
+            description:
+              "AI-powered shopping checkout",
+
+            order_id:
+              razorpayOrder
+                .razorpay_order_id,
+
+            handler:
+              async function (
+                paymentResponse: any
+              ) {
+                try {
+                  // -----------------------------------------
+                  // 4. Verify payment
+                  // -----------------------------------------
+
+                  const verificationResponse =
+                    await fetch(
+                      `http://127.0.0.1:8000/api/payments/${orderId}/verify`,
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type":
+                            "application/json",
+                        },
+                        body: JSON.stringify({
+                          razorpay_order_id:
+                            paymentResponse.razorpay_order_id,
+
+                          razorpay_payment_id:
+                            paymentResponse.razorpay_payment_id,
+
+                          razorpay_signature:
+                            paymentResponse.razorpay_signature,
+                        }),
+                      }
+                    );
+
+                  const result =
+                    await verificationResponse.json();
+
+                  if (
+                    !verificationResponse.ok
+                  ) {
+                    alert(
+                      result.detail ||
+                        "Payment verification failed"
+                    );
+                    return;
+                  }
+
+                  alert(
+                    "✅ Payment successful!"
+                  );
+
+                  await loadCart();
+                } catch (error) {
+                  console.error(
+                    "Payment verification error:",
+                    error
+                  );
+
+                  alert(
+                    "Payment verification failed."
+                  );
+                }
+              },
+
+            theme: {
+              color: "#000000",
+            },
+          };
+
+          // -------------------------------------------------
+          // 5. Create Razorpay instance
+          // -------------------------------------------------
+
+          const razorpay =
+            new window.Razorpay(
+              options
+            );
+
+          // -------------------------------------------------
+          // 6. Payment failure
+          // -------------------------------------------------
+
+          razorpay.on(
+            "payment.failed",
+            async function (
+              paymentFailure: any
+            ) {
+              console.error(
+                "Payment failed:",
+                paymentFailure?.error
+              );
+
+              try {
+                await fetch(
+                  `http://127.0.0.1:8000/api/payments/${orderId}/failed`,
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type":
+                        "application/json",
+                    },
+                    body: JSON.stringify({
+                      razorpay_order_id:
+                        paymentFailure
+                          ?.error
+                          ?.metadata
+                          ?.order_id ??
+                        razorpayOrder.razorpay_order_id,
+
+                      error_code:
+                        paymentFailure
+                          ?.error
+                          ?.code ??
+                        null,
+
+                      error_description:
+                        paymentFailure
+                          ?.error
+                          ?.description ??
+                        null,
+
+                      error_reason:
+                        paymentFailure
+                          ?.error
+                          ?.reason ??
+                        null,
+                    }),
+                  }
+                );
+              } catch (error) {
+                console.error(
+                  "Could not record payment failure:",
+                  error
+                );
+              }
+
+              alert(
+                "❌ Payment failed. Please try again."
+              );
+            }
+          );
+
+          // -------------------------------------------------
+          // 7. OPEN RAZORPAY
+          // -------------------------------------------------
+
+          console.log(
+            "Opening Razorpay checkout..."
+          );
+
+          razorpay.open();
+
+          return;
+        } catch (error) {
+          console.error(
+            "AI Razorpay checkout error:",
+            error
+          );
+
+          alert(
+            error instanceof Error
+              ? error.message
+              : "Could not start Razorpay checkout"
+          );
+
+          return;
+        }
+      }
+
+      // =====================================================
+      // NORMAL AI RESPONSE
+      // =====================================================
 
       setMessages((prev) => [
         ...prev,
@@ -758,6 +1019,7 @@ const razorpayResponse = await fetch(
 
       // Agent may have changed cart
       await loadCart();
+
     } catch (error) {
       console.error(error);
 
@@ -938,18 +1200,29 @@ const razorpayResponse = await fetch(
 
           {cart.length > 0 && (
             <>
+
               <button
-                onClick={() => checkout(false)}
+                onClick={() =>
+                  checkout(false)
+                }
                 className="w-full mt-4 bg-black text-white py-3 rounded-xl font-semibold hover:bg-gray-800"
               >
-                Pay ₹{safeNumber(cartTotal).toFixed(2)}
+                Pay ₹
+                {safeNumber(
+                  cartTotal
+                ).toFixed(2)}
               </button>
 
               <div className="mt-3 border border-gray-200 rounded-2xl bg-gray-50 p-4">
+
                 <div className="flex items-start gap-3">
-                  <div className="text-xl">🤖</div>
+
+                  <div className="text-xl">
+                    🤖
+                  </div>
 
                   <div className="flex-1">
+
                     <p className="font-semibold text-gray-900">
                       AI Buyer Checkout
                     </p>
@@ -960,23 +1233,32 @@ const razorpayResponse = await fetch(
                     </p>
 
                     <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-600">
+
                       <span className="px-2.5 py-1 rounded-full bg-white border border-gray-200">
                         🔐 Customer approval required
                       </span>
+
                       <span className="px-2.5 py-1 rounded-full bg-white border border-gray-200">
                         💳 No automatic payment
                       </span>
+
                     </div>
 
                     <button
-                      onClick={requestAICheckout}
+                      onClick={
+                        requestAICheckout
+                      }
                       className="w-full mt-3 bg-white border border-gray-300 text-gray-900 py-3 rounded-xl font-semibold hover:bg-gray-100"
                     >
                       🤖 Prepare Checkout with AI
                     </button>
+
                   </div>
+
                 </div>
+
               </div>
+
             </>
           )}
 
@@ -985,10 +1267,15 @@ const razorpayResponse = await fetch(
         {/* AI Buyer Checkout Request */}
 
         {aiCheckout && (
+
           <div className="border-b bg-gray-50 px-6 py-4">
+
             <div className="border border-gray-300 rounded-2xl bg-white p-5 shadow-sm">
+
               <div className="flex items-center justify-between">
+
                 <div>
+
                   <h2 className="font-semibold text-gray-900">
                     🤖 AI Buyer wants to checkout
                   </h2>
@@ -996,32 +1283,50 @@ const razorpayResponse = await fetch(
                   <p className="text-sm text-gray-600 mt-1">
                     The AI has prepared this purchase. Review it before approving any payment.
                   </p>
+
                 </div>
 
                 <span className="text-xs font-semibold bg-gray-100 text-gray-700 px-3 py-1 rounded-full">
                   Approval required
                 </span>
+
               </div>
 
               <div className="mt-4 space-y-2">
-                {aiCheckout.items.map((item) => (
-                  <div
-                    key={item.product_id}
-                    className="flex items-center justify-between text-sm"
-                  >
-                    <span className="text-gray-700">
-                      {item.quantity} × {item.name}
-                    </span>
 
-                    <span className="font-medium text-gray-900">
-                      ₹{safeNumber(item.subtotal).toFixed(2)}
-                    </span>
-                  </div>
-                ))}
+                {aiCheckout.items.map(
+                  (item) => (
+
+                    <div
+                      key={
+                        item.product_id
+                      }
+                      className="flex items-center justify-between text-sm"
+                    >
+
+                      <span className="text-gray-700">
+                        {item.quantity} ×{" "}
+                        {item.name}
+                      </span>
+
+                      <span className="font-medium text-gray-900">
+                        ₹
+                        {safeNumber(
+                          item.subtotal
+                        ).toFixed(2)}
+                      </span>
+
+                    </div>
+
+                  )
+                )}
+
               </div>
 
               <div className="border-t mt-4 pt-3 flex items-center justify-between">
+
                 <div>
+
                   <span className="font-semibold text-gray-900">
                     Total
                   </span>
@@ -1029,30 +1334,44 @@ const razorpayResponse = await fetch(
                   <p className="text-xs text-gray-500 mt-1">
                     Payment starts only after your approval.
                   </p>
+
                 </div>
 
                 <span className="text-lg font-bold text-gray-900">
-                  ₹{safeNumber(aiCheckout.total).toFixed(2)}
+                  ₹
+                  {safeNumber(
+                    aiCheckout.total
+                  ).toFixed(2)}
                 </span>
+
               </div>
 
               <div className="mt-4 flex gap-3">
+
                 <button
-                  onClick={rejectAICheckout}
+                  onClick={
+                    rejectAICheckout
+                  }
                   className="flex-1 border border-gray-300 text-gray-800 py-2.5 rounded-xl font-semibold hover:bg-gray-100"
                 >
                   Reject
                 </button>
 
                 <button
-                  onClick={approveAICheckout}
+                  onClick={
+                    approveAICheckout
+                  }
                   className="flex-1 bg-black text-white py-2.5 rounded-xl font-semibold hover:bg-gray-800"
                 >
                   Approve & Pay
                 </button>
+
               </div>
+
             </div>
+
           </div>
+
         )}
 
         {/* Messages */}
@@ -1164,6 +1483,7 @@ const razorpayResponse = await fetch(
                   )}
 
               </div>
+
             )
           )}
 
