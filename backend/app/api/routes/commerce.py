@@ -574,6 +574,128 @@ def request_checkout(
 
 
 # =========================================================
+# AI COMMERCE MANIFEST
+# =========================================================
+
+@router.get("/manifest")
+def get_commerce_manifest():
+    """
+    Machine-readable merchant contract for external AI buyers.
+
+    This endpoint describes:
+    - who the merchant is
+    - what commerce actions are available
+    - payment and approval boundaries
+    - safety guarantees
+    """
+
+    return {
+        "manifest_version": "1.0",
+
+        "merchant": {
+            "name": "Razorpay AI Merchant Agent",
+            "type": "ai_transactable_merchant",
+            "currency": "INR"
+        },
+
+        "buyer_interface": {
+            "type": "http_api",
+            "base_path": "/api/commerce"
+        },
+
+        "capabilities": [
+            {
+                "name": "catalog_search",
+                "method": "GET",
+                "endpoint": "/api/commerce/catalog/search",
+                "description": "Search active merchant products.",
+                "safe_for_ai": True
+            },
+            {
+                "name": "product_details",
+                "method": "GET",
+                "endpoint": "/api/commerce/products/{product_id}",
+                "description": "Retrieve exact product information.",
+                "safe_for_ai": True
+            },
+            {
+                "name": "availability_check",
+                "method": "GET",
+                "endpoint": "/api/commerce/products/{product_id}/availability",
+                "description": "Check live product stock before purchase.",
+                "safe_for_ai": True
+            },
+            {
+                "name": "get_cart",
+                "method": "GET",
+                "endpoint": "/api/commerce/cart/{customer_id}",
+                "description": "View the customer's active cart.",
+                "safe_for_ai": True
+            },
+            {
+                "name": "add_to_cart",
+                "method": "POST",
+                "endpoint": "/api/commerce/cart/{customer_id}/items",
+                "description": "Add an available product to the customer's cart.",
+                "safe_for_ai": True,
+                "payment_required": False
+            },
+            {
+                "name": "request_checkout",
+                "method": "POST",
+                "endpoint": "/api/commerce/checkout/{customer_id}",
+                "description": (
+                    "Prepare checkout and request explicit customer approval. "
+                    "Does not initiate payment."
+                ),
+                "safe_for_ai": True,
+                "payment_required": False,
+                "approval_required": True
+            }
+        ],
+
+        "payment_policy": {
+            "automatic_payment": False,
+            "payment_initiated_by_ai": False,
+            "explicit_customer_approval_required": True,
+            "signature_verification_required": True
+        },
+
+        "commerce_constraints": {
+            "stock_checked_before_cart_action": True,
+            "stock_checked_before_checkout": True,
+            "cannot_exceed_available_stock": True,
+            "audit_logging_enabled": True
+        },
+
+        "security_boundary": {
+            "ai_can": [
+                "discover_products",
+                "check_availability",
+                "manage_cart",
+                "request_checkout"
+            ],
+            "ai_cannot": [
+                "automatically_charge_customer",
+                "bypass_customer_approval",
+                "mark_payment_as_successful",
+                "bypass_payment_signature_verification"
+            ]
+        },
+
+        "transaction_flow": [
+            "discover",
+            "check_availability",
+            "add_to_cart",
+            "request_checkout",
+            "customer_approval",
+            "razorpay_payment",
+            "signature_verification"
+        ]
+    }
+
+
+# =========================================================
 # AI COMMERCE CAPABILITIES
 # =========================================================
 

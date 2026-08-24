@@ -945,12 +945,38 @@ const razorpayResponse = await fetch(
                 Pay ₹{safeNumber(cartTotal).toFixed(2)}
               </button>
 
-              <button
-                onClick={requestAICheckout}
-                className="w-full mt-2 border border-gray-300 text-gray-900 py-3 rounded-xl font-semibold hover:bg-gray-100"
-              >
-                🤖 Let AI Buyer Prepare Checkout
-              </button>
+              <div className="mt-3 border border-gray-200 rounded-2xl bg-gray-50 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="text-xl">🤖</div>
+
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-900">
+                      AI Buyer Checkout
+                    </p>
+
+                    <p className="text-sm text-gray-600 mt-1">
+                      Let the AI prepare your checkout. Payment will not
+                      happen until you explicitly approve it.
+                    </p>
+
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                      <span className="px-2.5 py-1 rounded-full bg-white border border-gray-200">
+                        🔐 Customer approval required
+                      </span>
+                      <span className="px-2.5 py-1 rounded-full bg-white border border-gray-200">
+                        💳 No automatic payment
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={requestAICheckout}
+                      className="w-full mt-3 bg-white border border-gray-300 text-gray-900 py-3 rounded-xl font-semibold hover:bg-gray-100"
+                    >
+                      🤖 Prepare Checkout with AI
+                    </button>
+                  </div>
+                </div>
+              </div>
             </>
           )}
 
@@ -968,7 +994,7 @@ const razorpayResponse = await fetch(
                   </h2>
 
                   <p className="text-sm text-gray-600 mt-1">
-                    Review the purchase before any payment is initiated.
+                    The AI has prepared this purchase. Review it before approving any payment.
                   </p>
                 </div>
 
@@ -995,9 +1021,15 @@ const razorpayResponse = await fetch(
               </div>
 
               <div className="border-t mt-4 pt-3 flex items-center justify-between">
-                <span className="font-semibold text-gray-900">
-                  Total
-                </span>
+                <div>
+                  <span className="font-semibold text-gray-900">
+                    Total
+                  </span>
+
+                  <p className="text-xs text-gray-500 mt-1">
+                    Payment starts only after your approval.
+                  </p>
+                </div>
 
                 <span className="text-lg font-bold text-gray-900">
                   ₹{safeNumber(aiCheckout.total).toFixed(2)}
