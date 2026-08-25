@@ -1053,490 +1053,379 @@ export default function Home() {
   // =========================================================
 
   return (
-    <main className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-
-      <div className="w-full max-w-4xl h-[700px] bg-white rounded-2xl shadow-xl flex flex-col overflow-hidden">
-
+    <main className="h-screen w-screen overflow-hidden bg-gray-50 text-gray-900">
+      <div className="h-full flex flex-col">
         {/* Header */}
-
-        <div className="bg-black text-white px-6 py-5">
-
-          <h1 className="text-xl font-bold">
-            Razorpay AI Merchant Agent
-          </h1>
-
-          <p className="text-sm text-gray-300 mt-1">
-            AI-powered shopping &
-            checkout assistant
-          </p>
-
-        </div>
-
-        {/* Cart */}
-
-        <div className="border-b bg-white px-6 py-4">
-
-          <div className="flex items-center justify-between">
-
-            <h2 className="font-semibold text-gray-900">
-              🛒 Cart
-            </h2>
-
-            <span className="font-bold text-gray-900">
-              ₹
-              {safeNumber(
-                cartTotal
-              ).toFixed(2)}
-            </span>
-
-          </div>
-
-          {cart.length === 0 ? (
-
-            <p className="text-sm text-gray-600 mt-2">
-              Your cart is empty.
+        <header className="h-16 shrink-0 bg-black text-white px-5 sm:px-7 flex items-center justify-between border-b border-gray-800">
+          <div>
+            <h1 className="text-lg sm:text-xl font-bold">
+              Razorpay AI Merchant Agent
+            </h1>
+            <p className="hidden sm:block text-xs text-gray-400 mt-0.5">
+              AI-powered shopping & checkout assistant
             </p>
-
-          ) : (
-
-            <div className="mt-3 space-y-2">
-
-              {cart.map(
-                (item) => {
-
-                  const price =
-                    safeNumber(
-                      item?.price
-                    );
-
-                  const quantity =
-                    safeNumber(
-                      item?.quantity,
-                      1
-                    );
-
-                  const subtotal =
-                    safeNumber(
-                      item?.subtotal,
-                      price *
-                        quantity
-                    );
-
-                  return (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl p-3"
-                    >
-
-                      <div>
-
-                        <p className="font-medium text-gray-900">
-                          {item.name}
-                        </p>
-
-                        <p className="text-sm text-gray-600">
-                          ₹
-                          {price.toFixed(
-                            2
-                          )}{" "}
-                          ×{" "}
-                          {quantity}
-                        </p>
-
-                      </div>
-
-                      <div className="flex items-center gap-4">
-
-                        <div className="flex items-center border border-gray-300 rounded-lg bg-white overflow-hidden">
-
-                          <button
-                            onClick={() =>
-                              updateCartItem(
-                                item.id,
-                                quantity -
-                                  1
-                              )
-                            }
-                            className="px-3 py-1 text-gray-700 hover:bg-gray-200"
-                          >
-                            −
-                          </button>
-
-                          <span className="px-3 text-gray-900 font-medium">
-                            {quantity}
-                          </span>
-
-                          <button
-                            onClick={() =>
-                              updateCartItem(
-                                item.id,
-                                quantity +
-                                  1
-                              )
-                            }
-                            className="px-3 py-1 text-gray-700 hover:bg-gray-200"
-                          >
-                            +
-                          </button>
-
-                        </div>
-
-                        <span className="font-semibold text-gray-900">
-                          ₹
-                          {subtotal.toFixed(
-                            2
-                          )}
-                        </span>
-
-                      </div>
-
-                    </div>
-                  );
-                }
-              )}
-
-            </div>
-          )}
-
-          {cart.length > 0 && (
-            <>
-
-              <button
-                onClick={() =>
-                  checkout(false)
-                }
-                className="w-full mt-4 bg-black text-white py-3 rounded-xl font-semibold hover:bg-gray-800"
-              >
-                Pay ₹
-                {safeNumber(
-                  cartTotal
-                ).toFixed(2)}
-              </button>
-
-              <div className="mt-3 border border-gray-200 rounded-2xl bg-gray-50 p-4">
-
-                <div className="flex items-start gap-3">
-
-                  <div className="text-xl">
-                    🤖
-                  </div>
-
-                  <div className="flex-1">
-
-                    <p className="font-semibold text-gray-900">
-                      AI Buyer Checkout
-                    </p>
-
-                    <p className="text-sm text-gray-600 mt-1">
-                      Let the AI prepare your checkout. Payment will not
-                      happen until you explicitly approve it.
-                    </p>
-
-                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-600">
-
-                      <span className="px-2.5 py-1 rounded-full bg-white border border-gray-200">
-                        🔐 Customer approval required
-                      </span>
-
-                      <span className="px-2.5 py-1 rounded-full bg-white border border-gray-200">
-                        💳 No automatic payment
-                      </span>
-
-                    </div>
-
-                    <button
-                      onClick={
-                        requestAICheckout
-                      }
-                      className="w-full mt-3 bg-white border border-gray-300 text-gray-900 py-3 rounded-xl font-semibold hover:bg-gray-100"
-                    >
-                      🤖 Prepare Checkout with AI
-                    </button>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-            </>
-          )}
-
-        </div>
-
-        {/* AI Buyer Checkout Request */}
-
-        {aiCheckout && (
-
-          <div className="border-b bg-gray-50 px-6 py-4">
-
-            <div className="border border-gray-300 rounded-2xl bg-white p-5 shadow-sm">
-
-              <div className="flex items-center justify-between">
-
-                <div>
-
-                  <h2 className="font-semibold text-gray-900">
-                    🤖 AI Buyer wants to checkout
-                  </h2>
-
-                  <p className="text-sm text-gray-600 mt-1">
-                    The AI has prepared this purchase. Review it before approving any payment.
-                  </p>
-
-                </div>
-
-                <span className="text-xs font-semibold bg-gray-100 text-gray-700 px-3 py-1 rounded-full">
-                  Approval required
-                </span>
-
-              </div>
-
-              <div className="mt-4 space-y-2">
-
-                {aiCheckout.items.map(
-                  (item) => (
-
-                    <div
-                      key={
-                        item.product_id
-                      }
-                      className="flex items-center justify-between text-sm"
-                    >
-
-                      <span className="text-gray-700">
-                        {item.quantity} ×{" "}
-                        {item.name}
-                      </span>
-
-                      <span className="font-medium text-gray-900">
-                        ₹
-                        {safeNumber(
-                          item.subtotal
-                        ).toFixed(2)}
-                      </span>
-
-                    </div>
-
-                  )
-                )}
-
-              </div>
-
-              <div className="border-t mt-4 pt-3 flex items-center justify-between">
-
-                <div>
-
-                  <span className="font-semibold text-gray-900">
-                    Total
-                  </span>
-
-                  <p className="text-xs text-gray-500 mt-1">
-                    Payment starts only after your approval.
-                  </p>
-
-                </div>
-
-                <span className="text-lg font-bold text-gray-900">
-                  ₹
-                  {safeNumber(
-                    aiCheckout.total
-                  ).toFixed(2)}
-                </span>
-
-              </div>
-
-              <div className="mt-4 flex gap-3">
-
-                <button
-                  onClick={
-                    rejectAICheckout
-                  }
-                  className="flex-1 border border-gray-300 text-gray-800 py-2.5 rounded-xl font-semibold hover:bg-gray-100"
-                >
-                  Reject
-                </button>
-
-                <button
-                  onClick={
-                    approveAICheckout
-                  }
-                  className="flex-1 bg-black text-white py-2.5 rounded-xl font-semibold hover:bg-gray-800"
-                >
-                  Approve & Pay
-                </button>
-
-              </div>
-
-            </div>
-
           </div>
 
-        )}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="hidden sm:inline px-3 py-1.5 rounded-full bg-white/10 text-gray-300">
+              AI Commerce
+            </span>
+            <span className="px-3 py-1.5 rounded-full bg-white text-black font-semibold">
+              {cart.length} {cart.length === 1 ? "item" : "items"}
+            </span>
+          </div>
+        </header>
 
-        {/* Messages */}
+        {/* Main workspace */}
+        <div className="flex-1 min-h-0 flex overflow-hidden">
+          {/* CHAT */}
+          <section className="flex-1 min-w-0 min-h-0 flex flex-col bg-white">
+            {/* Chat header */}
+            <div className="h-14 shrink-0 border-b bg-white px-5 flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold text-gray-900">AI Assistant</h2>
+                <p className="text-xs text-gray-500">
+                  Discover products, manage your cart and checkout
+                </p>
+              </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {cart.length > 0 && (
+                <div className="text-right">
+                  <p className="text-xs text-gray-500">Cart total</p>
+                  <p className="font-bold text-gray-900">
+                    ₹{safeNumber(cartTotal).toFixed(2)}
+                  </p>
+                </div>
+              )}
+            </div>
 
-          {messages.map(
-            (
-              message,
-              index
-            ) => (
+            {/* Scrollable chat */}
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-6">
+              <div className="max-w-4xl mx-auto space-y-6">
+                {messages.map((message, index) => (
+                  <div key={index}>
+                    <div
+                      className={`flex ${
+                        message.role === "user"
+                          ? "justify-end"
+                          : "justify-start"
+                      }`}
+                    >
+                      <div
+                        className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 whitespace-pre-wrap ${
+                          message.role === "user"
+                            ? "bg-black text-white"
+                            : "bg-gray-100 text-gray-900"
+                        }`}
+                      >
+                        {message.content}
+                      </div>
+                    </div>
 
-              <div key={index}>
+                    {/* Product cards */}
+                    {message.products &&
+                      message.products.length > 0 && (
+                        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                          {message.products.map((product) => (
+                            <div
+                              key={product.id}
+                              className="border border-gray-200 rounded-2xl p-5 bg-white shadow-sm"
+                            >
+                              <h3 className="text-lg font-semibold text-gray-900">
+                                {product.name}
+                              </h3>
 
-                <div
-                  className={`flex ${
-                    message.role ===
-                    "user"
-                      ? "justify-end"
-                      : "justify-start"
-                  }`}
-                >
+                              <p className="text-sm text-gray-600 mt-2">
+                                {product.description}
+                              </p>
 
-                  <div
-                    className={`max-w-[75%] rounded-2xl px-4 py-3 whitespace-pre-wrap ${
-                      message.role ===
-                      "user"
-                        ? "bg-black text-white"
-                        : "bg-gray-100 text-gray-900"
-                    }`}
-                  >
-                    {
-                      message.content
-                    }
+                              <div className="flex items-center justify-between mt-4">
+                                <span className="text-xl font-bold text-black">
+                                  ₹
+                                  {safeNumber(product.price).toFixed(2)}
+                                </span>
+
+                                <span className="text-sm text-gray-500">
+                                  {product.stock} in stock
+                                </span>
+                              </div>
+
+                              <button
+                                onClick={() => addToCart(product.id)}
+                                className="w-full mt-4 bg-black text-white py-2.5 rounded-xl hover:bg-gray-800"
+                              >
+                                Add to Cart
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                   </div>
+                ))}
 
+                {loading && (
+                  <div className="flex justify-start">
+                    <div className="bg-gray-100 rounded-2xl px-4 py-3 text-gray-500">
+                      Thinking...
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Fixed chat input */}
+            <div className="shrink-0 border-t bg-white p-3 sm:p-4">
+              <div className="max-w-4xl mx-auto flex gap-3">
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Ask me what you'd like to buy..."
+                  className="flex-1 min-w-0 border border-gray-300 bg-white text-gray-900 placeholder:text-gray-500 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-black"
+                  disabled={loading}
+                />
+
+                <button
+                  onClick={sendMessage}
+                  disabled={loading || !input.trim()}
+                  className="bg-black text-white px-5 sm:px-6 py-3 rounded-xl hover:bg-gray-800 disabled:bg-gray-300 disabled:text-gray-600"
+                >
+                  Send
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* SIDE PANEL */}
+          <aside className="hidden md:flex w-[360px] lg:w-[390px] shrink-0 min-h-0 border-l bg-gray-50 flex-col">
+            <div className="h-14 shrink-0 border-b bg-white px-5 flex items-center justify-between">
+              <h2 className="font-semibold text-gray-900">🛒 Cart & Checkout</h2>
+              <span className="text-xs text-gray-500">
+                {cart.length} {cart.length === 1 ? "item" : "items"}
+              </span>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+              {/* Cart */}
+              <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-gray-900">Cart</h3>
+                  <span className="font-bold text-gray-900">
+                    ₹{safeNumber(cartTotal).toFixed(2)}
+                  </span>
                 </div>
 
-                {/* Product cards */}
+                {cart.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <div className="text-3xl mb-2">🛒</div>
+                    <p className="text-sm text-gray-500">
+                      Your cart is empty.
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Ask the AI to find something for you.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {cart.map((item) => {
+                      const price = safeNumber(item?.price);
+                      const quantity = safeNumber(item?.quantity, 1);
+                      const subtotal = safeNumber(
+                        item?.subtotal,
+                        price * quantity
+                      );
 
-                {message.products &&
-                  message.products
-                    .length >
-                    0 && (
-
-                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
-
-                      {message.products.map(
-                        (
-                          product
-                        ) => (
-
-                          <div
-                            key={
-                              product.id
-                            }
-                            className="border rounded-2xl p-5 bg-white shadow-sm"
-                          >
-
-                            <h3 className="text-lg font-semibold text-gray-900">
-                              {
-                                product.name
-                              }
-                            </h3>
-
-                            <p className="text-sm text-gray-600 mt-2">
-                              {
-                                product.description
-                              }
-                            </p>
-
-                            <div className="flex items-center justify-between mt-4">
-
-                              <span className="text-xl font-bold text-black">
-                                ₹
-                                {safeNumber(
-                                  product.price
-                                ).toFixed(
-                                  2
-                                )}
-                              </span>
-
-                              <span className="text-sm text-gray-500">
-                                {
-                                  product.stock
-                                }{" "}
-                                in stock
-                              </span>
-
+                      return (
+                        <div
+                          key={item.id}
+                          className="rounded-xl border border-gray-200 bg-gray-50 p-3"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="font-medium text-gray-900 truncate">
+                                {item.name}
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                ₹{price.toFixed(2)} each
+                              </p>
                             </div>
 
-                            <button
-                              onClick={() =>
-                                addToCart(
-                                  product.id
-                                )
-                              }
-                              className="w-full mt-4 bg-black text-white py-2.5 rounded-xl hover:bg-gray-800"
-                            >
-                              Add to Cart
-                            </button>
-
+                            <span className="font-semibold text-gray-900 whitespace-nowrap">
+                              ₹{subtotal.toFixed(2)}
+                            </span>
                           </div>
 
-                        )
-                      )}
+                          <div className="mt-3 flex items-center justify-between">
+                            <div className="flex items-center border border-gray-300 rounded-lg bg-white overflow-hidden">
+                              <button
+                                onClick={() =>
+                                  updateCartItem(item.id, quantity - 1)
+                                }
+                                className="px-3 py-1.5 text-gray-700 hover:bg-gray-100"
+                              >
+                                −
+                              </button>
 
+                              <span className="px-3 text-sm text-gray-900 font-medium">
+                                {quantity}
+                              </span>
+
+                              <button
+                                onClick={() =>
+                                  updateCartItem(item.id, quantity + 1)
+                                }
+                                className="px-3 py-1.5 text-gray-700 hover:bg-gray-100"
+                              >
+                                +
+                              </button>
+                            </div>
+
+                            <span className="text-xs text-gray-500">
+                              Qty {quantity}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Normal checkout */}
+              {cart.length > 0 && (
+                <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                  <h3 className="font-semibold text-gray-900">
+                    Standard Checkout
+                  </h3>
+
+                  <p className="text-xs text-gray-500 mt-1">
+                    Review your cart and pay securely through Razorpay.
+                  </p>
+
+                  <div className="mt-4 flex items-center justify-between border-t pt-3">
+                    <span className="text-sm text-gray-600">Total</span>
+                    <span className="text-lg font-bold text-gray-900">
+                      ₹{safeNumber(cartTotal).toFixed(2)}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => checkout(false)}
+                    className="w-full mt-4 bg-black text-white py-3 rounded-xl font-semibold hover:bg-gray-800"
+                  >
+                    Pay ₹{safeNumber(cartTotal).toFixed(2)}
+                  </button>
+                </div>
+              )}
+
+              {/* AI checkout */}
+              {cart.length > 0 && (
+                <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="text-xl">🤖</div>
+
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-gray-900">
+                        AI Buyer Checkout
+                      </h3>
+
+                      <p className="text-xs text-gray-500 mt-1">
+                        The AI can prepare the checkout, but payment requires
+                        your explicit approval.
+                      </p>
+
+                      <div className="mt-3 space-y-1.5">
+                        <div className="text-xs text-gray-600">
+                          🔐 Customer approval required
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          💳 No automatic payment
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={requestAICheckout}
+                        className="w-full mt-4 bg-white border border-gray-300 text-gray-900 py-3 rounded-xl font-semibold hover:bg-gray-100"
+                      >
+                        🤖 Prepare Checkout with AI
+                      </button>
                     </div>
-                  )}
+                  </div>
+                </div>
+              )}
 
-              </div>
+              {/* AI approval request */}
+              {aiCheckout && (
+                <div className="bg-white border border-gray-300 rounded-2xl p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold text-gray-900">
+                        🤖 AI Buyer wants to checkout
+                      </h3>
 
-            )
-          )}
+                      <p className="text-xs text-gray-600 mt-1">
+                        Review the purchase before approving payment.
+                      </p>
+                    </div>
 
-          {loading && (
+                    <span className="shrink-0 text-[11px] font-semibold bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full">
+                      Approval required
+                    </span>
+                  </div>
 
-            <div className="flex justify-start">
+                  <div className="mt-4 space-y-2">
+                    {aiCheckout.items.map((item) => (
+                      <div
+                        key={item.product_id}
+                        className="flex items-center justify-between gap-3 text-sm"
+                      >
+                        <span className="text-gray-700">
+                          {item.quantity} × {item.name}
+                        </span>
 
-              <div className="bg-gray-100 rounded-2xl px-4 py-3 text-gray-500">
-                Thinking...
-              </div>
+                        <span className="font-medium text-gray-900 whitespace-nowrap">
+                          ₹{safeNumber(item.subtotal).toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
 
+                  <div className="border-t mt-4 pt-3 flex items-center justify-between">
+                    <div>
+                      <span className="font-semibold text-gray-900">
+                        Total
+                      </span>
+                      <p className="text-[11px] text-gray-500 mt-1">
+                        Payment starts only after approval.
+                      </p>
+                    </div>
+
+                    <span className="text-lg font-bold text-gray-900">
+                      ₹{safeNumber(aiCheckout.total).toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <button
+                      onClick={rejectAICheckout}
+                      className="border border-gray-300 text-gray-800 py-2.5 rounded-xl font-semibold hover:bg-gray-100"
+                    >
+                      Reject
+                    </button>
+
+                    <button
+                      onClick={approveAICheckout}
+                      className="bg-black text-white py-2.5 rounded-xl font-semibold hover:bg-gray-800"
+                    >
+                      Approve & Pay
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-
-          )}
-
+          </aside>
         </div>
-
-        {/* Input */}
-
-        <div className="border-t p-4 flex gap-3">
-
-          <input
-            value={input}
-            onChange={(e) =>
-              setInput(
-                e.target.value
-              )
-            }
-            onKeyDown={
-              handleKeyDown
-            }
-            placeholder="Ask me what you'd like to buy..."
-            className="flex-1 border border-gray-300 bg-white text-gray-900 placeholder:text-gray-500 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-black"
-            disabled={loading}
-          />
-
-          <button
-            onClick={
-              sendMessage
-            }
-            disabled={
-              loading ||
-              !input.trim()
-            }
-            className="bg-black text-white px-6 py-3 rounded-xl hover:bg-gray-800 disabled:bg-gray-300 disabled:text-gray-600"
-          >
-            Send
-          </button>
-
-        </div>
-
       </div>
-
     </main>
   );
 }
