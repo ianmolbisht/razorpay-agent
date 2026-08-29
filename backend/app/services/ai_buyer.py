@@ -77,6 +77,14 @@ def request_checkout():
 
     return response.json()
 
+def create_order_from_cart(cart_id: int):
+    response = requests.post(
+        f"{BASE_URL.replace('/commerce', '')}/orders/from-cart/{cart_id}"
+    )
+    response.raise_for_status()
+    return response.json()
+
+
 def approve_order(order_id: int):
     response = requests.post(
         f"{BASE_URL.replace('/commerce', '')}/orders/{order_id}/approve"

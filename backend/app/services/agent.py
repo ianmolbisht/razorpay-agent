@@ -15,6 +15,7 @@ from app.services.agent_tools import (
 
 from app.services.ai_buyer import (
     request_checkout,
+    create_order_from_cart,
     approve_order,
 )
 
@@ -345,7 +346,13 @@ def execute_tool(tool_name: str, args: dict):
     # ---------------------------------------------------------
 
     if tool_name == "request_checkout":
-        return request_checkout()
+        checkout = request_checkout()
+        order = create_order_from_cart(checkout["cart_id"])
+
+        return {
+            **checkout,
+            "order_id": order["id"],
+        }
 
     # ---------------------------------------------------------
     # CART TOOLS
