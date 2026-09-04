@@ -25,6 +25,9 @@ The customer remains in control of payment.
 
 ---
 
+## System Architecture
+![BuyFlow System Architecture](docs/razArch.png)
+
 ## 💡 Key Innovation
 
 ### AI-readable merchant + external AI buyer

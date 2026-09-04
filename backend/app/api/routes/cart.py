@@ -23,9 +23,6 @@ def get_db():
         db.close()
 
 
-# =========================================================
-# CREATE CART
-# =========================================================
 
 @router.post(
     "/{customer_id}",
@@ -45,10 +42,6 @@ def create_cart(
 
     return cart
 
-
-# =========================================================
-# ADD ITEM TO CART
-# =========================================================
 
 @router.post("/{cart_id}/items")
 def add_to_cart(
@@ -151,10 +144,6 @@ def add_to_cart(
     }
 
 
-# =========================================================
-# UPDATE CART ITEM
-# =========================================================
-
 @router.patch("/{cart_id}/items/{item_id}")
 def update_cart_item(
     cart_id: int,
@@ -209,7 +198,7 @@ def update_cart_item(
             detail="Product not found"
         )
 
-    # Quantity 0 means remove the item
+    # Quantity 0 --> remove the item
     if quantity <= 0:
 
         db.delete(item)
@@ -246,9 +235,6 @@ def update_cart_item(
     }
 
 
-# =========================================================
-# GET ACTIVE CART
-# =========================================================
 
 @router.get("/customer/{customer_id}/active")
 def get_active_cart(
@@ -314,9 +300,6 @@ def get_active_cart(
     }
 
 
-# =========================================================
-# GET CART BY ID
-# =========================================================
 
 @router.get("/{cart_id}")
 def get_cart(

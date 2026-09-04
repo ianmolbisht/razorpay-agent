@@ -24,18 +24,12 @@ def get_db():
         db.close()
 
 
-# =========================================================
-# REQUEST SCHEMAS
-# =========================================================
 
 class AddToCartRequest(BaseModel):
     product_id: int
     quantity: int = 1
 
 
-# =========================================================
-# AI-READABLE CATALOG SEARCH
-# =========================================================
 
 @router.get("/catalog/search")
 def search_catalog(
@@ -45,9 +39,6 @@ def search_catalog(
     limit: int = 10,
     db: Session = Depends(get_db)
 ):
-    """
-    Machine-readable catalog search for external AI buyers.
-    """
 
     if limit < 1:
         limit = 1
@@ -105,19 +96,11 @@ def search_catalog(
     }
 
 
-# =========================================================
-# PRODUCT DETAILS
-# =========================================================
-
 @router.get("/products/{product_id}")
 def get_commerce_product(
     product_id: int,
     db: Session = Depends(get_db)
 ):
-    """
-    Return exact product information in an
-    AI-readable format.
-    """
 
     product = (
         db.query(Product)
@@ -150,18 +133,11 @@ def get_commerce_product(
     }
 
 
-# =========================================================
-# PRODUCT AVAILABILITY
-# =========================================================
-
 @router.get("/products/{product_id}/availability")
 def get_product_availability(
     product_id: int,
     db: Session = Depends(get_db)
 ):
-    """
-    Allow an external AI buyer to check live stock.
-    """
 
     product = (
         db.query(Product)
@@ -190,19 +166,13 @@ def get_product_availability(
     }
 
 
-# =========================================================
-# GET ACTIVE CART
-# =========================================================
 
 @router.get("/cart/{customer_id}")
 def get_commerce_cart(
     customer_id: int,
     db: Session = Depends(get_db)
 ):
-    """
-    Return the customer's active cart in a stable,
-    AI-readable format.
-    """
+   
 
     cart = (
         db.query(Cart)
@@ -270,31 +240,18 @@ def get_commerce_cart(
     }
 
 
-# =========================================================
-# ADD TO CART
-# =========================================================
-
 @router.post("/cart/{customer_id}/items")
 def commerce_add_to_cart(
     customer_id: int,
     request: AddToCartRequest,
     db: Session = Depends(get_db)
 ):
-    """
-    Add a product to the customer's active cart.
-
-    This operation does NOT initiate payment.
-    """
 
     if request.quantity <= 0:
         raise HTTPException(
             status_code=400,
             detail="Quantity must be greater than zero"
         )
-
-    # -----------------------------------------------------
-    # Find active cart
-    # -----------------------------------------------------
 
     cart = (
         db.query(Cart)
@@ -311,10 +268,6 @@ def commerce_add_to_cart(
             detail="Active cart not found"
         )
 
-    # -----------------------------------------------------
-    # Find active product
-    # -----------------------------------------------------
-
     product = (
         db.query(Product)
         .filter(
@@ -330,10 +283,6 @@ def commerce_add_to_cart(
             detail="Product not found"
         )
 
-    # -----------------------------------------------------
-    # Check stock
-    # -----------------------------------------------------
-
     if request.quantity > product.stock:
         raise HTTPException(
             status_code=400,
@@ -344,10 +293,7 @@ def commerce_add_to_cart(
             )
         )
 
-    # -----------------------------------------------------
-    # Existing cart item
-    # -----------------------------------------------------
-
+    
     cart_item = (
         db.query(CartItem)
         .filter(
@@ -389,10 +335,6 @@ def commerce_add_to_cart(
     db.commit()
     db.refresh(cart_item)
 
-    # -----------------------------------------------------
-    # Audit
-    # -----------------------------------------------------
-
     log_action(
         session_id=f"customer_{customer_id}",
         action="AI_BUYER_ADD_TO_CART",
@@ -432,25 +374,12 @@ def commerce_add_to_cart(
         "approval_required_for_payment": True
     }
 
-
-# =========================================================
-# CHECKOUT REQUEST
-# =========================================================
-
 @router.post("/checkout/{customer_id}")
 def request_checkout(
     customer_id: int,
     db: Session = Depends(get_db)
 ):
-    """
-    Request checkout for an AI buyer.
-
-    IMPORTANT:
-    This endpoint does NOT charge the customer.
-
-    It only prepares a bounded checkout request and
-    explicitly requires customer approval before payment.
-    """
+   
 
     cart = (
         db.query(Cart)
@@ -489,9 +418,6 @@ def request_checkout(
 
     checkout_items = []
 
-    # -----------------------------------------------------
-    # Validate current stock before checkout
-    # -----------------------------------------------------
 
     for item, product in items:
 
@@ -573,21 +499,9 @@ def request_checkout(
     }
 
 
-# =========================================================
-# AI COMMERCE MANIFEST
-# =========================================================
-
 @router.get("/manifest")
 def get_commerce_manifest():
-    """
-    Machine-readable merchant contract for external AI buyers.
-
-    This endpoint describes:
-    - who the merchant is
-    - what commerce actions are available
-    - payment and approval boundaries
-    - safety guarantees
-    """
+  
 
     return {
         "manifest_version": "1.0",
@@ -695,16 +609,9 @@ def get_commerce_manifest():
     }
 
 
-# =========================================================
-# AI COMMERCE CAPABILITIES
-# =========================================================
-
 @router.get("/capabilities")
 def get_commerce_capabilities():
-    """
-    Machine-readable description of the merchant's
-    AI commerce capabilities.
-    """
+   
 
     return {
         "merchant":

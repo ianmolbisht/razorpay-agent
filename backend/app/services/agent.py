@@ -23,10 +23,7 @@ from app.services.audit import log_action
 
 from app.db.database import SessionLocal
 
-
-# =============================================================
-# SYSTEM PROMPT
-# =============================================================
+#pormpts to agent
 
 SYSTEM_PROMPT = """
 You are an AI Merchant Sales & Checkout Agent.
@@ -259,15 +256,10 @@ TOOLS = [
 ]
 
 
-# =============================================================
-# ACTIVE CART
-# =============================================================
-
 def get_active_cart_id(customer_id: int = 1):
     db = SessionLocal()
 
     try:
-        # Look for an existing active cart
         cart = (
             db.query(Cart)
             .filter(
@@ -280,8 +272,6 @@ def get_active_cart_id(customer_id: int = 1):
         if cart:
             return cart.id
 
-        # No active cart exists.
-        # Start a new shopping session.
         cart = Cart(
             customer_id=customer_id,
             status="active",
@@ -297,19 +287,9 @@ def get_active_cart_id(customer_id: int = 1):
         db.close()
 
 
-# =============================================================
-# TOOL EXECUTION
-# =============================================================
 
 def execute_tool(tool_name: str, args: dict):
-    """
-    Execute one commerce tool and return its result.
-    """
-
-    # ---------------------------------------------------------
-    # APPROVE ORDER
-    # ---------------------------------------------------------
-
+   
     if tool_name == "approve_order":
 
         db = SessionLocal()
@@ -341,10 +321,6 @@ def execute_tool(tool_name: str, args: dict):
         finally:
             db.close()
 
-    # ---------------------------------------------------------
-    # REQUEST CHECKOUT
-    # ---------------------------------------------------------
-
     if tool_name == "request_checkout":
         checkout = request_checkout()
         order = create_order_from_cart(checkout["cart_id"])
@@ -353,10 +329,6 @@ def execute_tool(tool_name: str, args: dict):
             **checkout,
             "order_id": order["id"],
         }
-
-    # ---------------------------------------------------------
-    # CART TOOLS
-    # ---------------------------------------------------------
 
     if tool_name in ["get_cart", "add_to_cart"]:
 
@@ -370,9 +342,6 @@ def execute_tool(tool_name: str, args: dict):
 
         args["cart_id"] = cart_id
 
-    # ---------------------------------------------------------
-    # SEARCH PRODUCTS
-    # ---------------------------------------------------------
 
     if tool_name == "search_product_catalog":
 
@@ -382,9 +351,6 @@ def execute_tool(tool_name: str, args: dict):
             limit=args.get("limit", 5),
         )
 
-    # ---------------------------------------------------------
-    # LIST PRODUCTS
-    # ---------------------------------------------------------
 
     if tool_name == "list_products":
 
@@ -411,9 +377,6 @@ def execute_tool(tool_name: str, args: dict):
         finally:
             db.close()
 
-    # ---------------------------------------------------------
-    # GET PRODUCT
-    # ---------------------------------------------------------
 
     if tool_name == "get_product":
 
@@ -421,19 +384,11 @@ def execute_tool(tool_name: str, args: dict):
             args["product_id"]
         )
 
-    # ---------------------------------------------------------
-    # GET CART
-    # ---------------------------------------------------------
-
     if tool_name == "get_cart":
 
         return get_cart(
             args["cart_id"]
         )
-
-    # ---------------------------------------------------------
-    # ADD TO CART
-    # ---------------------------------------------------------
 
     if tool_name == "add_to_cart":
 
@@ -443,29 +398,15 @@ def execute_tool(tool_name: str, args: dict):
             quantity=args.get("quantity", 1),
         )
 
-    # ---------------------------------------------------------
-    # UNKNOWN TOOL
-    # ---------------------------------------------------------
-
     return {
         "success": False,
         "error": f"Unknown tool: {tool_name}",
     }
 
-
-# =============================================================
-# AGENT
-# =============================================================
-
 def run_agent(
     message: str,
     history: list[dict] | None = None,
 ):
-
-    # ---------------------------------------------------------
-    # FAST PATH: LIST PRODUCTS
-    # ---------------------------------------------------------
-
     if message.lower().strip() in [
         "what all can i buy",
         "what can i buy",
@@ -492,10 +433,6 @@ def run_agent(
             "tool": "list_products",
             "tool_result": result,
         }
-
-    # ---------------------------------------------------------
-    # BUILD CONVERSATION
-    # ---------------------------------------------------------
 
     messages = [
         {
@@ -527,10 +464,6 @@ def run_agent(
         }
     )
 
-    # ---------------------------------------------------------
-    # TOOL LOOP
-    # ---------------------------------------------------------
-
     MAX_ITERATIONS = 5
 
     last_tool_name = None
@@ -547,10 +480,6 @@ def run_agent(
 
         assistant_message = response.choices[0].message
 
-        # -----------------------------------------------------
-        # FINAL AI RESPONSE
-        # -----------------------------------------------------
-
         if not assistant_message.tool_calls:
 
             return {
@@ -560,25 +489,15 @@ def run_agent(
                 "tool_result": last_tool_result,
             }
 
-        # -----------------------------------------------------
-        # ADD ASSISTANT TOOL CALL
-        # -----------------------------------------------------
-
         messages.append(assistant_message)
 
-        # -----------------------------------------------------
-        # EXECUTE TOOLS
-        # -----------------------------------------------------
-
+       
         for tool_call in assistant_message.tool_calls:
 
             tool_name = tool_call.function.name
 
             last_tool_name = tool_name
 
-            # -------------------------------------------------
-            # PARSE ARGUMENTS
-            # -------------------------------------------------
 
             try:
 
@@ -608,9 +527,6 @@ def run_agent(
 
                 continue
 
-            # -------------------------------------------------
-            # RESOLVE ACTIVE CART
-            # -------------------------------------------------
 
             if tool_name in [
                 "get_cart",
@@ -654,21 +570,12 @@ def run_agent(
 
                 args["cart_id"] = cart_id
 
-            # -------------------------------------------------
-            # AUDIT TOOL CALL
-            # -------------------------------------------------
-
             log_action(
                 session_id="customer_1",
                 action="TOOL_CALL",
                 tool_name=tool_name,
                 arguments=args,
             )
-
-            # -------------------------------------------------
-            # EXECUTE TOOL
-            # -------------------------------------------------
-
             try:
 
                 result = execute_tool(
@@ -689,10 +596,6 @@ def run_agent(
                     ),
                 }
 
-            # -------------------------------------------------
-            # AUDIT TOOL RESULT
-            # -------------------------------------------------
-
             log_action(
                 session_id="customer_1",
                 action="TOOL_RESULT",
@@ -703,10 +606,6 @@ def run_agent(
 
             last_tool_result = result
 
-            # -------------------------------------------------
-            # APPROVAL SUCCESS
-            # -------------------------------------------------
-
             if (
                 tool_name == "approve_order"
                 and isinstance(result, dict)
@@ -714,14 +613,6 @@ def run_agent(
                 and result.get("approved") is True
                 and result.get("order_id") is not None
             ):
-
-                # IMPORTANT:
-                #
-                # Do NOT send this back to the LLM and let it
-                # make another tool call such as get_cart.
-                #
-                # The frontend needs the order_id so it can
-                # start Razorpay Checkout.
 
                 return {
                     "type": "message",
@@ -735,10 +626,6 @@ def run_agent(
                     "payment_approved": True,
                 }
 
-            # -------------------------------------------------
-            # SEND TOOL RESULT TO MODEL
-            # -------------------------------------------------
-
             messages.append(
                 {
                     "role": "tool",
@@ -750,10 +637,6 @@ def run_agent(
                     ),
                 }
             )
-
-    # =========================================================
-    # SAFETY FALLBACK
-    # =========================================================
 
     return {
         "type": "message",

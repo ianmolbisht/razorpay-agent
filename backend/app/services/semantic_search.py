@@ -8,7 +8,6 @@ def search_products(query: str, limit: int = 5, min_similarity: float = 0.45):
     db = SessionLocal()
 
     try:
-        # First try exact/keyword matching on product name
         keyword_sql = text("""
             SELECT
                 id,

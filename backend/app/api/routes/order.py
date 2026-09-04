@@ -39,10 +39,6 @@ def get_db():
         db.close()
 
 
-# =========================================================
-# CREATE ORDER FROM CART
-# =========================================================
-
 @router.post("/from-cart/{cart_id}")
 def create_order_from_cart(
     cart_id: int,
@@ -140,10 +136,6 @@ def create_order_from_cart(
     db.commit()
     db.refresh(order)
 
-    # -----------------------------------------------------
-    # Audit: order created
-    # -----------------------------------------------------
-
     log_action(
         session_id=f"customer_{order.customer_id}",
         action="ORDER_CREATED",
@@ -161,11 +153,6 @@ def create_order_from_cart(
     )
 
     return order
-
-
-# =========================================================
-# CUSTOMER APPROVAL
-# =========================================================
 
 @router.post("/{order_id}/approve")
 def approve_order(
@@ -192,10 +179,6 @@ def approve_order(
             detail="Order is not pending"
         )
 
-    # -----------------------------------------------------
-    # Audit: explicit customer approval
-    # -----------------------------------------------------
-
     log_action(
         session_id=f"customer_{order.customer_id}",
         action="PAYMENT_APPROVED",
@@ -218,11 +201,6 @@ def approve_order(
         "order_id": order.id,
         "approved": True
     }
-
-
-# =========================================================
-# CREATE RAZORPAY ORDER
-# =========================================================
 
 @router.post("/{order_id}/razorpay")
 def create_razorpay_order(
@@ -248,15 +226,6 @@ def create_razorpay_order(
             status_code=400,
             detail="Order is not pending"
         )
-
-    # -----------------------------------------------------
-    # IMPORTANT:
-    #
-    # Razorpay creation should only happen after explicit
-    # customer approval.
-    #
-    # We verify that an approval audit event exists.
-    # -----------------------------------------------------
 
     approval = (
         db.query(AuditLog)
@@ -350,10 +319,6 @@ def create_razorpay_order(
 
     db.commit()
     db.refresh(order)
-
-    # -----------------------------------------------------
-    # Audit: Razorpay order created
-    # -----------------------------------------------------
 
     log_action(
         session_id=f"customer_{order.customer_id}",

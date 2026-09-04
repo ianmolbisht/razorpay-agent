@@ -51,7 +51,7 @@ export default function Home() {
     {
       role: "assistant",
       content:
-        "Hey! 👋 I'm your AI shopping assistant. What are you looking for?",
+        "Hey!  I'm your AI shopping assistant. What are you looking for?",
     },
   ]);
 
@@ -65,10 +65,6 @@ export default function Home() {
   const [aiCheckout, setAICheckout] =
     useState<AICheckout | null>(null);
 
-  // =========================================================
-  // SAFE NUMBER HELPER
-  // =========================================================
-
   function safeNumber(
     value: any,
     fallback = 0
@@ -79,10 +75,6 @@ export default function Home() {
       ? number
       : fallback;
   }
-
-  // =========================================================
-  // NORMALIZE CART ITEM
-  // =========================================================
 
   function normalizeCartItem(
     item: any
@@ -124,10 +116,7 @@ export default function Home() {
     };
   }
 
-  // =========================================================
-  // LOAD ACTIVE CART
-  // =========================================================
-
+  
   async function loadCart() {
     try {
       const response = await fetch(
@@ -204,17 +193,11 @@ export default function Home() {
     }
   }
 
-  // =========================================================
-  // INITIAL LOAD
-  // =========================================================
 
   useEffect(() => {
     loadCart();
   }, []);
 
-  // =========================================================
-  // LOAD RAZORPAY
-  // =========================================================
 
   useEffect(() => {
     const script =
@@ -237,10 +220,6 @@ export default function Home() {
       );
     };
   }, []);
-
-  // =========================================================
-  // ADD TO CART
-  // =========================================================
 
   async function addToCart(
     productId: number
@@ -292,10 +271,6 @@ export default function Home() {
     }
   }
 
-  // =========================================================
-  // UPDATE CART ITEM
-  // =========================================================
-
   async function updateCartItem(
     itemId: number,
     quantity: number
@@ -338,10 +313,6 @@ export default function Home() {
     }
   }
 
-  // =========================================================
-  // NORMAL CHECKOUT
-  // =========================================================
-
   async function checkout(
     approvalAlreadyGiven = false
   ) {
@@ -371,7 +342,6 @@ export default function Home() {
       return;
     }
 
-    // Explicit approval before money action
     if (!approvalAlreadyGiven) {
       const approved =
         window.confirm(
@@ -389,10 +359,6 @@ export default function Home() {
     }
 
     try {
-      // -----------------------------------------------------
-      // 1. Create local order
-      // -----------------------------------------------------
-
       const orderResponse =
         await fetch(
           `http://127.0.0.1:8000/api/orders/from-cart/${cartId}`,
@@ -411,10 +377,6 @@ export default function Home() {
         );
         return;
       }
-
-      // -----------------------------------------------------
-      // 2. Record explicit customer approval
-      // -----------------------------------------------------
 
       const approvalResponse =
         await fetch(
@@ -435,10 +397,7 @@ export default function Home() {
         return;
       }
 
-      // -----------------------------------------------------
-      // 3. Create Razorpay order
-      // -----------------------------------------------------
-
+ 
       const razorpayResponse =
         await fetch(
           `http://127.0.0.1:8000/api/orders/${order.id}/razorpay`,
@@ -458,20 +417,13 @@ export default function Home() {
         return;
       }
 
-      // -----------------------------------------------------
-      // 4. Make sure Razorpay loaded
-      // -----------------------------------------------------
-
       if (!window.Razorpay) {
         alert(
           "Razorpay Checkout is still loading. Please try again."
         );
         return;
       }
-
-      // -----------------------------------------------------
-      // 5. Razorpay Checkout
-      // -----------------------------------------------------
+    
 
       const options = {
         key:
@@ -607,7 +559,7 @@ export default function Home() {
           }
 
           alert(
-            "❌ Payment failed. Please try again."
+            " Payment failed. Please try again."
           );
         }
       );
@@ -750,15 +702,7 @@ export default function Home() {
         data
       );
 
-      // =====================================================
-      // AI APPROVED PAYMENT
-      //
-      // IMPORTANT:
-      // The AI has approved the order, but the frontend must
-      // still create the Razorpay order and OPEN the payment
-      // interface.
-      // =====================================================
-
+      
       if (
         data.tool ===
           "approve_order" &&
@@ -774,10 +718,6 @@ export default function Home() {
           );
 
         try {
-          // -------------------------------------------------
-          // 1. Create Razorpay order
-          // -------------------------------------------------
-
           const razorpayResponse =
             await fetch(
               `http://127.0.0.1:8000/api/orders/${orderId}/razorpay`,
@@ -798,10 +738,6 @@ export default function Home() {
             );
           }
 
-          // -------------------------------------------------
-          // 2. Check Razorpay SDK
-          // -------------------------------------------------
-
           if (
             !window.Razorpay
           ) {
@@ -809,10 +745,6 @@ export default function Home() {
               "Razorpay Checkout is still loading. Please refresh and try again."
             );
           }
-
-          // -------------------------------------------------
-          // 3. Razorpay options
-          // -------------------------------------------------
 
           const options = {
             key:
@@ -839,10 +771,6 @@ export default function Home() {
                 paymentResponse: any
               ) {
                 try {
-                  // -----------------------------------------
-                  // 4. Verify payment
-                  // -----------------------------------------
-
                   const verificationResponse =
                     await fetch(
                       `http://127.0.0.1:8000/api/payments/${orderId}/verify`,
@@ -900,18 +828,10 @@ export default function Home() {
             },
           };
 
-          // -------------------------------------------------
-          // 5. Create Razorpay instance
-          // -------------------------------------------------
-
           const razorpay =
             new window.Razorpay(
               options
             );
-
-          // -------------------------------------------------
-          // 6. Payment failure
-          // -------------------------------------------------
 
           razorpay.on(
             "payment.failed",
@@ -973,10 +893,6 @@ export default function Home() {
             }
           );
 
-          // -------------------------------------------------
-          // 7. OPEN RAZORPAY
-          // -------------------------------------------------
-
           console.log(
             "Opening Razorpay checkout..."
           );
@@ -1000,10 +916,6 @@ export default function Home() {
         }
       }
 
-      // =====================================================
-      // NORMAL AI RESPONSE
-      // =====================================================
-
       setMessages((prev) => [
         ...prev,
         {
@@ -1017,7 +929,6 @@ export default function Home() {
         },
       ]);
 
-      // Agent may have changed cart
       await loadCart();
 
     } catch (error) {
@@ -1035,11 +946,6 @@ export default function Home() {
       setLoading(false);
     }
   }
-
-  // =========================================================
-  // ENTER KEY
-  // =========================================================
-
   function handleKeyDown(
     e: React.KeyboardEvent<HTMLInputElement>
   ) {
@@ -1047,11 +953,6 @@ export default function Home() {
       sendMessage();
     }
   }
-
-  // =========================================================
-  // UI
-  // =========================================================
-
   return (
     <main className="h-screen w-screen overflow-hidden bg-gray-50 text-gray-900">
       <div className="h-full flex flex-col">

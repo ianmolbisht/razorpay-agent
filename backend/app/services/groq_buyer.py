@@ -24,10 +24,6 @@ client = Groq(
 
 
 def discover_merchant():
-    """
-    Discover the merchant's machine-readable
-    commerce contract before interacting with it.
-    """
 
     response = requests.get(
         f"{BASE_URL}/manifest"
@@ -39,10 +35,6 @@ def discover_merchant():
 
 
 def validate_merchant_manifest(manifest):
-    """
-    Validate the merchant contract before allowing
-    the external AI buyer to interact with it.
-    """
 
     required_fields = [
         "manifest_version",
@@ -118,10 +110,7 @@ def validate_merchant_manifest(manifest):
 
 
 def is_tool_allowed(manifest, tool_name):
-    """
-    Check whether the merchant explicitly exposes
-    the corresponding operation to external AI buyers.
-    """
+    
 
     tool_to_capability = {
         "search_products": "catalog_search",
@@ -370,10 +359,6 @@ def execute_tool(name, arguments):
 
 def run_buyer(message: str):
 
-    # -----------------------------------------------------
-    # Discover merchant before interacting
-    # -----------------------------------------------------
-
     merchant_manifest = discover_merchant()
 
     validate_merchant_manifest(
@@ -429,25 +414,13 @@ def run_buyer(message: str):
 
         assistant_message = response.choices[0].message
 
-        # -------------------------------------------------
-        # No more tool calls
-        # -------------------------------------------------
-
         if not assistant_message.tool_calls:
 
             return assistant_message.content
 
-        # -------------------------------------------------
-        # Add assistant tool-call message
-        # -------------------------------------------------
-
         messages.append(
             assistant_message
         )
-
-        # -------------------------------------------------
-        # Execute every requested tool
-        # -------------------------------------------------
 
         for tool_call in assistant_message.tool_calls:
 

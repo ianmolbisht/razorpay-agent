@@ -53,10 +53,6 @@ class PaymentFailure(BaseModel):
     error_reason: str | None = None
 
 
-# =========================================================
-# VERIFY PAYMENT
-# =========================================================
-
 @router.post("/{order_id}/verify")
 def verify_payment(
     order_id: int,
@@ -109,10 +105,6 @@ def verify_payment(
             detail="Order already paid"
         )
 
-    # -----------------------------------------------------
-    # Verify Razorpay signature
-    # -----------------------------------------------------
-
     try:
         razorpay_client.utility.verify_payment_signature(
             {
@@ -128,10 +120,7 @@ def verify_payment(
         )
 
     except Exception:
-        # -------------------------------------------------
-        # Failed verification is also audited.
-        # -------------------------------------------------
-
+       
         log_action(
             session_id=f"customer_{order.customer_id}",
             action="PAYMENT_VERIFICATION_FAILED",
@@ -157,10 +146,7 @@ def verify_payment(
             detail="Payment verification failed"
         )
 
-    # -----------------------------------------------------
-    # Find existing payment
-    # -----------------------------------------------------
-
+    
     payment = (
         db.query(Payment)
         .filter(
@@ -188,16 +174,7 @@ def verify_payment(
 
         payment.status = "paid"
 
-    # -----------------------------------------------------
-    # Mark order paid
-    # -----------------------------------------------------
-
     order.status = "paid"
-
-    # -----------------------------------------------------
-    # Only after successful verification:
-    # mark cart checked out
-    # -----------------------------------------------------
 
     cart = (
         db.query(Cart)
@@ -214,10 +191,6 @@ def verify_payment(
         cart.status = "checked_out"
 
     db.commit()
-
-    # -----------------------------------------------------
-    # Audit: payment verified
-    # -----------------------------------------------------
 
     log_action(
         session_id=f"customer_{order.customer_id}",
@@ -249,10 +222,6 @@ def verify_payment(
     }
 
 
-# =========================================================
-# PAYMENT FAILED / CANCELLED
-# =========================================================
-
 @router.post("/{order_id}/failed")
 def payment_failed(
     order_id: int,
@@ -273,9 +242,6 @@ def payment_failed(
             detail="Order not found"
         )
 
-    # -----------------------------------------------------
-    # Never change a paid order back to failed.
-    # -----------------------------------------------------
 
     if order.status == "paid":
         raise HTTPException(
@@ -283,22 +249,10 @@ def payment_failed(
             detail="Order is already paid"
         )
 
-    # -----------------------------------------------------
-    # Keep order pending.
-    #
-    # A failed/cancelled Razorpay attempt must NOT:
-    # - mark the order paid
-    # - check out the cart
-    # - reduce stock
-    # -----------------------------------------------------
-
     order.status = "pending"
 
     db.commit()
 
-    # -----------------------------------------------------
-    # Audit the failure
-    # -----------------------------------------------------
 
     log_action(
         session_id=f"customer_{order.customer_id}",
@@ -335,10 +289,6 @@ def payment_failed(
         )
     }
 
-
-# =========================================================
-# CREATE PAYMENT RECORD
-# =========================================================
 
 @router.post("/{order_id}")
 def create_payment(
