@@ -26,7 +26,7 @@ The customer remains in control of payment.
 ---
 
 ## System Architecture
-![BuyFlow System Architecture](docs/razArch.png)
+![System Architecture](docs/razArch.png)
 
 ## 💡 Key Innovation
 
