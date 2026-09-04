@@ -26,7 +26,7 @@ The customer remains in control of payment.
 ---
 
 ## System Architecture
-![System Architecture](docs/razArch.png)
+![System Architecture](docs/razor.drawio.png)
 
 ## 💡 Key Innovation
 
