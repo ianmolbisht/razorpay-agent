@@ -4,7 +4,7 @@ AI-powered commerce agent for product discovery, cart management, and secure che
 
 ## Overview
 
-BuyFlow allows customers to interact with a merchant using natural language.
+Razorpay AI Merchant Agent allows customers to interact with a merchant using natural language.
 The agent can search products, check availability, manage the cart, and prepare
 checkout through commerce APIs.
 
