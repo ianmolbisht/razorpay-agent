@@ -1,4 +1,4 @@
-# BuyFlow
+# Razorpay AI Merchant Agent
 
 AI-powered commerce agent for product discovery, cart management, and secure checkout.
 
